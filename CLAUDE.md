@@ -371,7 +371,12 @@ Use these skills when they are installed. At the start of a session, check which
 ---
 
 ## Progress
-- [ ] Phase 0 – Setup
+- [x] Phase 0 – Setup
+  - Start: `python scripts/dev.py` (backend 127.0.0.1:8000 with reload, Vite 127.0.0.1:5173 proxying `/api` and `/ws`). Check: `python scripts/check.py` (ruff, ruff format, mypy --strict, pytest, tsc, vitest).
+  - Typst pinned to 0.15.0 (typst-py); backend refuses to start on mismatch with `config.toml`. Ruff is configured repo-wide in `ruff.toml`.
+  - typst-py returns `bytes` (not a list) for single-page SVG output; the Phase 1 compiler adapter must normalize this.
+  - Open: Starlette's TestClient prefers `httpx2` over `httpx` (warning silenced in pytest config). `frontend-design` skill lives at `/mnt/skills/public/frontend-design`; `webapp-testing` not installed yet.
+  - Cloud sessions block `packages.typst.org` and GitHub release downloads — needed for Phase 2 (chart package) and Phase 4 (LTeX+).
 - [ ] Phase 1 – Core layout
 - [ ] Phase 2 – Insert toolbar
 - [ ] Phase 3 – AI selector + Claude review
