@@ -13,13 +13,13 @@ from typst_writer.config import LtexConfig, load_config
 from typst_writer.infra import ltex_install
 from typst_writer.infra.ltex_install import (
     LTEX_DIR_ENV_VAR,
-    LtexInstallError,
     archive_url,
     extract,
     find_installation,
     install,
     platform_key,
 )
+from typst_writer.infra.tool_download import InstallError
 
 pytestmark = pytest.mark.anyio
 
@@ -130,7 +130,7 @@ async def test_checksum_mismatch_installs_nothing(isolated_app_home: Path) -> No
     archive, key = _archive_for_this_platform(GOOD_FILES)
     config = _config(archive, key).model_copy(update={"sha256": {key: "0" * 64}})
     async with _client(archive, []) as client:
-        with pytest.raises(LtexInstallError, match="checksum"):
+        with pytest.raises(InstallError, match="checksum"):
             await install(config, lambda *_: None, client)
     assert find_installation(config) is None
     assert list((isolated_app_home / "cache").iterdir()) == []
@@ -144,7 +144,7 @@ async def test_failed_download_installs_nothing(isolated_app_home: Path) -> None
         return httpx.Response(403, content=b"blocked")
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-        with pytest.raises(LtexInstallError, match="Downloading LTeX\\+ failed"):
+        with pytest.raises(InstallError, match="Downloading LTeX\\+ failed"):
             await install(config, lambda *_: None, client)
     assert find_installation(config) is None
 
@@ -153,7 +153,7 @@ async def test_archive_without_java_is_rejected(isolated_app_home: Path) -> None
     archive, key = _archive_for_this_platform({"ltex-ls-plus-9.9.9/lib/ltex.jar": b"jar"})
     config = _config(archive, key)
     async with _client(archive, []) as client:
-        with pytest.raises(LtexInstallError, match="expected folder"):
+        with pytest.raises(InstallError, match="expected folder"):
             await install(config, lambda *_: None, client)
     assert find_installation(config) is None
 
@@ -183,7 +183,7 @@ def test_env_override_points_at_an_existing_installation(
 def test_unsafe_tar_entries_are_refused(tmp_path: Path, archive: bytes) -> None:
     path = tmp_path / "a.tar.gz"
     path.write_bytes(archive)
-    with pytest.raises(LtexInstallError):
+    with pytest.raises(InstallError):
         extract(path, tmp_path / "out")
     assert not (tmp_path / "evil.txt").exists()
 
@@ -212,6 +212,6 @@ def test_unsafe_zip_entries_are_refused(
 ) -> None:
     path = tmp_path / "a.zip"
     path.write_bytes(_zip(files, symlink))
-    with pytest.raises(LtexInstallError, match="unsafe entry"):
+    with pytest.raises(InstallError, match="unsafe entry"):
         extract(path, tmp_path / "out")
     assert list((tmp_path / "out").iterdir()) == []

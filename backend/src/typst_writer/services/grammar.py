@@ -25,12 +25,11 @@ from typst_writer.domain.models import (
 )
 from typst_writer.infra.ltex_install import (
     DOWNLOAD_MB,
-    InstallPhase,
     LtexInstallation,
-    LtexInstallError,
     find_installation,
     install,
 )
+from typst_writer.infra.tool_download import InstallError, InstallPhase
 from typst_writer.ports.rule_checker import CheckerStatus, RuleChecker
 from typst_writer.services.settings import SettingsService
 
@@ -158,7 +157,7 @@ class GrammarService:
 
         try:
             installation = await install(self._config.ltex, progress)
-        except LtexInstallError as exc:
+        except InstallError as exc:
             log.warning("LTeX+ install failed: %s", exc)
             self._checker = NoneRuleChecker(
                 CheckerStatus(state="not_installed", reason=f"{exc} Click Install to try again.")

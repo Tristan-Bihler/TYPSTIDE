@@ -10,7 +10,6 @@ install ahead of time, e.g. before going offline.
 """
 
 import asyncio
-import hashlib
 import os
 import platform
 import shutil
@@ -19,15 +18,14 @@ import sys
 import tarfile
 import tempfile
 import zipfile
-from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
-from typing import Literal
 
 import httpx
 
 from typst_writer.config import LtexConfig, load_config
 from typst_writer.infra.app_dirs import cache_dir
+from typst_writer.infra.tool_download import InstallError, InstallPhase, Progress, download
 
 # Points at an existing LTeX+ folder instead of the cache (own installs, shared test install).
 LTEX_DIR_ENV_VAR = "TYPST_WRITER_LTEX_DIR"
@@ -35,13 +33,6 @@ MAIN_CLASS = "org.bsplines.ltexls.LtexLanguageServerLauncher"
 MAX_ARCHIVE_BYTES = 1_000_000_000
 MAX_UNPACKED_BYTES = 3_000_000_000
 DOWNLOAD_MB = 320  # rough size of every platform's archive, shown before asking
-
-InstallPhase = Literal["download", "unpack"]
-Progress = Callable[[InstallPhase, int, int | None], None]  # phase, bytes done, total
-
-
-class LtexInstallError(Exception):
-    """Installing LTeX+ failed; the message is meant for the user."""
 
 
 def platform_key(system: str = sys.platform, machine: str = platform.machine()) -> str | None:
@@ -113,66 +104,31 @@ async def install(
         return existing
     key = platform_key()
     if key is None:
-        raise LtexInstallError("LTeX+ offers no download for this kind of computer.")
+        raise InstallError("LTeX+ offers no download for this kind of computer.")
     expected = config.sha256.get(key)
     if not expected:
-        raise LtexInstallError(f"config.toml has no [ltex.sha256] checksum for {key}.")
+        raise InstallError(f"config.toml has no [ltex.sha256] checksum for {key}.")
     target = install_dir(config)
     target.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=target.parent, prefix=".ltex-install-") as tmp:
         archive = Path(tmp) / f"ltex.{archive_extension(key)}"
-        await download(archive_url(config, key), archive, expected, progress, client)
+        url = archive_url(config, key)
+        await download(
+            url, archive, expected, progress, client, tool="LTeX+", max_bytes=MAX_ARCHIVE_BYTES
+        )
         progress("unpack", 0, None)
         unpacked = Path(tmp) / "unpacked"
         await asyncio.to_thread(extract, archive, unpacked)
         folders = [p for p in unpacked.iterdir() if p.is_dir()]
         if len(folders) != 1 or find_java(folders[0]) is None:
-            raise LtexInstallError("The LTeX+ archive does not contain the expected folder.")
+            raise InstallError("The LTeX+ archive does not contain the expected folder.")
         if target.exists():
             shutil.rmtree(target)  # an incomplete folder from someone else; not an install
         folders[0].replace(target)
     installation = find_installation(config)
     if installation is None:
-        raise LtexInstallError("LTeX+ was unpacked but cannot be found.")
+        raise InstallError("LTeX+ was unpacked but cannot be found.")
     return installation
-
-
-async def download(
-    url: str,
-    dest: Path,
-    sha256: str,
-    progress: Progress,
-    client: httpx.AsyncClient | None = None,
-) -> None:
-    own = client is None
-    http = client or httpx.AsyncClient(timeout=httpx.Timeout(30.0, read=120.0))
-    digest = hashlib.sha256()
-    try:
-        async with http.stream("GET", url, follow_redirects=True) as response:
-            response.raise_for_status()
-            length = response.headers.get("content-length")
-            total = int(length) if length and length.isdigit() else None
-            if total is not None and total > MAX_ARCHIVE_BYTES:
-                raise LtexInstallError("The LTeX+ download is unexpectedly large.")
-            done = 0
-            with dest.open("wb") as f:
-                async for chunk in response.aiter_bytes(1 << 20):
-                    done += len(chunk)
-                    if done > MAX_ARCHIVE_BYTES:
-                        raise LtexInstallError("The LTeX+ download is unexpectedly large.")
-                    digest.update(chunk)
-                    f.write(chunk)
-                    progress("download", done, total)
-    except httpx.HTTPError as exc:
-        raise LtexInstallError(f"Downloading LTeX+ failed: {exc}") from exc
-    finally:
-        if own:
-            await http.aclose()
-    if digest.hexdigest() != sha256.lower():
-        dest.unlink(missing_ok=True)
-        raise LtexInstallError(
-            "The LTeX+ download does not match its checksum; nothing was installed."
-        )
 
 
 def extract(archive: Path, dest: Path) -> None:
@@ -184,10 +140,10 @@ def extract(archive: Path, dest: Path) -> None:
         else:
             with tarfile.open(archive, "r:gz") as tar:
                 if sum(m.size for m in tar.getmembers()) > MAX_UNPACKED_BYTES:
-                    raise LtexInstallError("The LTeX+ archive is unexpectedly large.")
+                    raise InstallError("The LTeX+ archive is unexpectedly large.")
                 tar.extractall(dest, filter="data")
     except (tarfile.TarError, zipfile.BadZipFile, OSError) as exc:
-        raise LtexInstallError(f"Unpacking LTeX+ failed: {exc}") from exc
+        raise InstallError(f"Unpacking LTeX+ failed: {exc}") from exc
 
 
 def _extract_zip(archive: Path, dest: Path) -> None:
@@ -195,7 +151,7 @@ def _extract_zip(archive: Path, dest: Path) -> None:
     with zipfile.ZipFile(archive) as z:
         infos = z.infolist()
         if sum(i.file_size for i in infos) > MAX_UNPACKED_BYTES:
-            raise LtexInstallError("The LTeX+ archive is unexpectedly large.")
+            raise InstallError("The LTeX+ archive is unexpectedly large.")
         for info in infos:
             name = PurePosixPath(info.filename.replace("\\", "/"))
             unsafe = (
@@ -206,7 +162,7 @@ def _extract_zip(archive: Path, dest: Path) -> None:
                 or not (root / name).resolve().is_relative_to(root)
             )
             if unsafe:
-                raise LtexInstallError(f"The LTeX+ archive has an unsafe entry: {info.filename}")
+                raise InstallError(f"The LTeX+ archive has an unsafe entry: {info.filename}")
         z.extractall(root)  # noqa: S202 - every entry was checked above
 
 
@@ -230,7 +186,7 @@ def main() -> int:
 
     try:
         installation = asyncio.run(install(config, report))
-    except LtexInstallError as exc:
+    except InstallError as exc:
         print(exc, file=sys.stderr)
         return 1
     print(f"Installed LTeX+ {config.version} in {installation.home}")

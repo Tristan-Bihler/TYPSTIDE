@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from starlette.testclient import WebSocketTestSession
 
 from typst_writer.config import load_config
-from typst_writer.infra import ltex_install
+from typst_writer.infra import ltex_install, tool_download
 from typst_writer.infra.ltex_install import LTEX_DIR_ENV_VAR
 from typst_writer.main import create_app
 from typst_writer.services import grammar as grammar_service
@@ -148,7 +148,7 @@ def test_install_on_request_then_checks_run(
     home = tmp_path / "ltex-installed"
 
     async def fake_install(
-        config: object, progress: ltex_install.Progress
+        config: object, progress: tool_download.Progress
     ) -> ltex_install.LtexInstallation:
         progress("download", 50, 100)
         progress("download", 100, 100)
