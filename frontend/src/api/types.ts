@@ -47,7 +47,8 @@ export interface EntryPath {
 // --- WebSocket ---------------------------------------------------------------------
 
 export type ClientMessage =
-  | { type: "doc_changed"; path: string; content: string }
+  | { type: "doc_changed"; path: string; content: string; version: number }
+  | { type: "doc_opened"; path: string; content: string; version: number }
   | { type: "doc_closed"; path: string }
   | { type: "refresh" };
 
@@ -70,7 +71,37 @@ export type ServerMessage =
   | CompileStatus
   | { type: "preview_pages"; pages: PageUpdate[] }
   | { type: "problems"; problems: Problem[] }
-  | { type: "workspace_changed"; workspace: WorkspaceInfo | null; reopened: boolean };
+  | { type: "workspace_changed"; workspace: WorkspaceInfo | null; reopened: boolean }
+  | SuggestionsMessage
+  | { type: "checker_status"; status: CheckerStatus };
+
+export interface SuggestionsMessage {
+  type: "suggestions";
+  path: string;
+  version: number | null; // the doc version that was checked
+  source: Suggestion["source"];
+  suggestions: Suggestion[];
+}
+
+// --- spelling and grammar ------------------------------------------------------------
+
+export type CheckerState = "not_installed" | "installing" | "starting" | "ready" | "failed";
+
+export interface CheckerStatus {
+  state: CheckerState;
+  reason: string;
+  progress: number | null; // 0..1 while installing
+}
+
+export interface GrammarSettings {
+  language: "de-DE" | "en-US";
+  dictionary: Partial<Record<"de-DE" | "en-US", string[]>>;
+}
+
+export interface GrammarOverview {
+  status: CheckerStatus;
+  settings: GrammarSettings;
+}
 
 // --- insert toolbar ----------------------------------------------------------------
 
@@ -146,7 +177,9 @@ export interface Suggestion {
   original: string;
   replacement: string;
   reason: string;
-  category: string;
+  category: string; // rule checks: "spelling" | "grammar"
+  fixes?: string[]; // rule checks: every offered replacement
+  rule?: string; // rule checks: the LanguageTool rule id
 }
 
 export interface ReviewResult {

@@ -2,7 +2,14 @@
 
 import type { ClientMessage, ServerMessage } from "./types";
 
-const SERVER_TYPES = new Set(["compile_status", "preview_pages", "problems", "workspace_changed"]);
+const SERVER_TYPES = new Set([
+  "compile_status",
+  "preview_pages",
+  "problems",
+  "workspace_changed",
+  "suggestions",
+  "checker_status",
+]);
 
 export function parseServerMessage(raw: string): ServerMessage | null {
   try {

@@ -2,7 +2,7 @@
 
 import { ApiError, api } from "./api/client";
 import { LiveConnection } from "./api/live";
-import type { Problem, ServerMessage } from "./api/types";
+import type { Problem, ServerMessage, Suggestion, SuggestionsMessage } from "./api/types";
 import { EditorPane } from "./editor/editor";
 import { pickFolder } from "./filetree/folderPicker";
 import { mountFileTree } from "./filetree/tree";
@@ -16,9 +16,11 @@ import { initialState, isDirty, Store, type AppState, type Language, type OpenDo
 import { mountTopbar } from "./topbar/fileActions";
 import { mountInsertToolbar } from "./topbar/insertToolbar";
 import { reviewBlocker, reviewSelection } from "./review/review";
+import { ignoreKey } from "./suggestions/layer";
+import { suggestionProblems } from "./suggestions/problems";
 import { showContextMenu } from "./ui/contextMenu";
 import { chooseAction, confirmAction, promptText, showMessage } from "./ui/dialog";
-import { basename, storage } from "./ui/dom";
+import { basename } from "./ui/dom";
 
 // Keep in sync with [timing] doc_changed_debounce_ms in config.toml.
 const DOC_CHANGED_DEBOUNCE_MS = 300;
@@ -28,14 +30,15 @@ function errorText(error: unknown): string {
 }
 
 export class App implements Actions {
-  readonly store = new Store<AppState>({
-    ...initialState,
-    language: storage.get("language") === "en-US" ? "en-US" : "de-DE",
-  });
+  readonly store = new Store<AppState>(initialState);
   private readonly editor: EditorPane;
   private readonly preview: PreviewPane;
   private readonly live: LiveConnection;
   private readonly timers = new Map<string, number>();
+  /** Findings hidden with "Ignore", per file (for this session). */
+  private readonly ignored = new Map<string, Set<string>>();
+  /** The last findings per file and the text they were found in. */
+  private readonly checked = new Map<string, { content: string; suggestions: Suggestion[] }>();
 
   constructor(root: HTMLElement) {
     const shell = buildShell(root);
@@ -52,6 +55,8 @@ export class App implements Actions {
       onClose: (path) => void this.closeDoc(path),
       onReview: () => void reviewSelection({ store: this.store, editor: this.editor }),
       onContextMenu: (event) => this.editorMenu(event),
+      onIgnore: (path, suggestion) => this.ignore(path, suggestion),
+      onAddWord: (suggestion) => void this.addWord(suggestion),
     });
     this.editor.show(null);
     mountInsertToolbar(insertHost, {
@@ -113,6 +118,12 @@ export class App implements Actions {
 
   start(): void {
     this.live.connect();
+    api
+      .grammar()
+      .then((grammar) => this.store.set({ language: grammar.settings.language, checker: grammar.status }))
+      .catch(() => {
+        // Backend not reachable yet; the checker status arrives with the live connection.
+      });
   }
 
   // --- live messages ---------------------------------------------------------------
@@ -139,12 +150,76 @@ export class App implements Actions {
           compile: { state: message.state, main: message.main, durationMs: message.duration_ms },
         });
         break;
+      case "suggestions":
+        this.showFindings(message);
+        break;
+      case "checker_status":
+        this.store.set({ checker: message.status });
+        break;
+    }
+  }
+
+  // --- spelling and grammar ----------------------------------------------------------
+
+  private showFindings(message: SuggestionsMessage): void {
+    const doc = this.store.get().docs.find((d) => d.path === message.path);
+    // Findings for text that has changed since are dropped; the next check replaces them.
+    if (doc === undefined || message.version !== doc.version) return;
+    this.checked.set(doc.path, { content: doc.content, suggestions: message.suggestions });
+    this.renderFindings(doc.path);
+  }
+
+  private renderFindings(path: string): void {
+    const checked = this.checked.get(path);
+    if (checked === undefined) return;
+    const ignored = this.ignored.get(path);
+    const shown = checked.suggestions.filter((s) => !ignored?.has(ignoreKey(s)));
+    this.editor.setSuggestions(path, shown);
+    const problems = suggestionProblems(path, checked.content, shown);
+    this.store.set({ findings: { ...this.store.get().findings, [path]: problems } });
+  }
+
+  private ignore(path: string, suggestion: Suggestion): void {
+    const keys = this.ignored.get(path) ?? new Set<string>();
+    keys.add(ignoreKey(suggestion));
+    this.ignored.set(path, keys);
+    const checked = this.checked.get(path);
+    if (checked === undefined) return;
+    const problems = suggestionProblems(
+      path,
+      checked.content,
+      checked.suggestions.filter((s) => !keys.has(ignoreKey(s))),
+    );
+    this.store.set({ findings: { ...this.store.get().findings, [path]: problems } });
+  }
+
+  private async addWord(suggestion: Suggestion): Promise<void> {
+    try {
+      // The backend checks all open files again, so the word disappears everywhere.
+      await api.addToDictionary(this.store.get().language, suggestion.original);
+    } catch (error) {
+      await showMessage("Could not add the word", errorText(error));
+    }
+  }
+
+  async installGrammar(): Promise<void> {
+    const ok = await confirmAction(
+      "Install the spelling check?",
+      "Spelling and grammar checks use LTeX+. It is downloaded once (about 320 MB) and then works offline. Nothing is sent anywhere while you write.",
+      "Download and install",
+    );
+    if (!ok) return;
+    try {
+      this.store.set({ checker: (await api.installGrammar()).status });
+    } catch (error) {
+      await showMessage("Could not install the spelling check", errorText(error));
     }
   }
 
   private resendBuffers(): void {
     for (const doc of this.store.get().docs) {
-      if (isDirty(doc)) this.live.send({ type: "doc_changed", path: doc.path, content: doc.content });
+      const message = { path: doc.path, content: doc.content, version: doc.version };
+      this.live.send(isDirty(doc) ? { type: "doc_changed", ...message } : { type: "doc_opened", ...message });
     }
     this.live.send({ type: "refresh" });
   }
@@ -170,11 +245,12 @@ export class App implements Actions {
   }
 
   private contentChanged(path: string, content: string): void {
-    this.updateDoc(path, { content });
+    const version = (this.store.get().docs.find((d) => d.path === path)?.version ?? 0) + 1;
+    this.updateDoc(path, { content, version });
     window.clearTimeout(this.timers.get(path));
     this.timers.set(
       path,
-      window.setTimeout(() => this.live.send({ type: "doc_changed", path, content }), DOC_CHANGED_DEBOUNCE_MS),
+      window.setTimeout(() => this.live.send({ type: "doc_changed", path, content, version }), DOC_CHANGED_DEBOUNCE_MS),
     );
   }
 
@@ -183,7 +259,9 @@ export class App implements Actions {
     this.timers.clear();
     this.editor.closeAll();
     this.preview.clear();
-    this.store.set({ docs: [], active: null, problems: [] });
+    this.ignored.clear();
+    this.checked.clear();
+    this.store.set({ docs: [], active: null, problems: [], findings: {} });
   }
 
   async openDoc(path: string): Promise<void> {
@@ -191,7 +269,8 @@ export class App implements Actions {
       try {
         const file = await api.readFile(path);
         this.editor.open(path, file.content);
-        this.store.set({ docs: [...this.store.get().docs, { path, saved: file.content, content: file.content }] });
+        this.store.set({ docs: [...this.store.get().docs, { path, saved: file.content, content: file.content, version: 1 }] });
+        this.live.send({ type: "doc_opened", path, content: file.content, version: 1 });
       } catch (error) {
         await showMessage("Could not open the file", errorText(error));
         return;
@@ -212,6 +291,10 @@ export class App implements Actions {
     this.timers.delete(path);
     this.live.send({ type: "doc_closed", path });
     this.editor.close(path);
+    this.ignored.delete(path);
+    this.checked.delete(path);
+    const { [path]: _closed, ...findings } = this.store.get().findings;
+    this.store.set({ findings });
     const { docs, active } = this.store.get();
     const index = docs.findIndex((d) => d.path === path);
     const remaining = docs.filter((d) => d.path !== path);
@@ -356,11 +439,13 @@ export class App implements Actions {
       if (moved === null) return doc;
       this.editor.rename(doc.path, moved);
       this.live.send({ type: "doc_closed", path: doc.path });
-      if (isDirty(doc)) this.live.send({ type: "doc_changed", path: moved, content: doc.content });
+      const message = { path: moved, content: doc.content, version: doc.version };
+      this.live.send(isDirty(doc) ? { type: "doc_changed", ...message } : { type: "doc_opened", ...message });
       return { ...doc, path: moved };
     });
     const active = state.active === null ? null : (movedPath(state.active, from, to) ?? state.active);
-    this.store.set({ docs, active });
+    const findings = Object.fromEntries(Object.entries(state.findings).filter(([path]) => movedPath(path, from, to) === null));
+    this.store.set({ docs, active, findings });
   }
 
   async remove(path: string, kind: EntryKind): Promise<void> {
@@ -413,8 +498,13 @@ export class App implements Actions {
   }
 
   setLanguage(language: Language): void {
-    storage.set("language", language);
+    const previous = this.store.get().language;
     this.store.set({ language });
+    // The backend saves it and checks every open file again.
+    api.setGrammarLanguage(language).catch(async (error: unknown) => {
+      this.store.set({ language: previous });
+      await showMessage("Could not change the language", errorText(error));
+    });
   }
 }
 

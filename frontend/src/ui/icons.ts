@@ -15,6 +15,7 @@ export const icons = {
   close: svg('<path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/>'),
   error: svg('<circle cx="8" cy="8" r="6"/><path d="M8 4.8v3.7M8 11v.2"/>'),
   warning: svg('<path d="M8 2l6.5 11.5h-13z"/><path d="M8 6.5v3M8 11.5v.2"/>'),
+  spelling: svg('<path d="M3 9.5l2.5-6.5 2.5 6.5M3.9 7.3h3.2"/><path d="M1.5 13c1.1-1 2.1 1 3.2 0s2.1 1 3.2 0 2.1 1 3.2 0 2.1 1 3.4 0"/>'),
   up: svg('<path d="M8 13V3M4 7l4-4 4 4"/>'),
 };
 

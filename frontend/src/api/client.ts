@@ -6,6 +6,8 @@ import type {
   DirListing,
   EntryPath,
   FileContent,
+  GrammarOverview,
+  GrammarSettings,
   Problem,
   ReviewRequest,
   ReviewResult,
@@ -116,6 +118,12 @@ export const api = {
   setAiSettings: (settings: AISettings): Promise<AIOverview> => request("PUT", "/api/ai/settings", settings),
   review: (body: ReviewRequest, signal: AbortSignal): Promise<ReviewResult> =>
     request("POST", "/api/review", body, signal),
+  grammar: (): Promise<GrammarOverview> => request("GET", "/api/grammar"),
+  installGrammar: (): Promise<GrammarOverview> => request("POST", "/api/grammar/install"),
+  setGrammarLanguage: (language: GrammarSettings["language"]): Promise<GrammarOverview> =>
+    request("PUT", "/api/grammar/settings", { language }),
+  addToDictionary: (language: GrammarSettings["language"], word: string): Promise<GrammarOverview> =>
+    request("POST", "/api/grammar/dictionary", { language, word }),
 
   async exportPdf(overlays: Record<string, string>): Promise<{ blob: Blob; filename: string }> {
     const response = await fetch("/api/export/pdf", {

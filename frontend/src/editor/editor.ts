@@ -15,7 +15,8 @@ import {
   type KeyBinding,
 } from "@codemirror/view";
 
-import type { Problem } from "../api/types";
+import type { Problem, Suggestion } from "../api/types";
+import { setSuggestions, suggestionLayer } from "../suggestions/layer";
 import { isDirty, type AppState, type Store } from "../state/store";
 import { basename, el } from "../ui/dom";
 import { iconNode, icons } from "../ui/icons";
@@ -30,6 +31,10 @@ export interface EditorCallbacks {
   onReview(): void;
   /** Right-click inside the text; return true when a custom menu was shown. */
   onContextMenu(event: MouseEvent): boolean;
+  /** "Ignore" on a finding in the active file. */
+  onIgnore(path: string, suggestion: Suggestion): void;
+  /** "Add to dictionary" on a spelling finding. */
+  onAddWord(suggestion: Suggestion): void;
 }
 
 /** Convert 1-based line/column to a document offset, clamped to the document. */
@@ -83,6 +88,12 @@ export class EditorPane {
         typstLanguage,
         syntaxHighlighting(typstHighlight),
         lintGutter(),
+        suggestionLayer({
+          ignore: (suggestion) => {
+            if (this.activePath !== null) this.callbacks.onIgnore(this.activePath, suggestion);
+          },
+          addToDictionary: (suggestion) => this.callbacks.onAddWord(suggestion),
+        }),
         EditorView.lineWrapping,
         EditorState.tabSize.of(2),
         this.shortcuts.of(keymap.of(this.shortcutBindings)),
@@ -189,6 +200,23 @@ export class EditorPane {
         };
       });
     this.view.dispatch(setDiagnostics(state, diagnostics));
+  }
+
+  /** Replace the findings shown in `path` (offsets must match its current text). */
+  setSuggestions(path: string, suggestions: Suggestion[]): void {
+    const effects = setSuggestions.of(suggestions);
+    if (path === this.activePath) {
+      this.view.dispatch({ effects });
+      return;
+    }
+    const state = this.states.get(path);
+    if (state !== undefined) this.states.set(path, state.update({ effects }).state);
+  }
+
+  /** The text of an open file (the editor's current state). */
+  content(path: string): string | null {
+    if (path === this.activePath) return this.view.state.doc.toString();
+    return this.states.get(path)?.doc.toString() ?? null;
   }
 
   jumpTo(line: number, column: number): void {

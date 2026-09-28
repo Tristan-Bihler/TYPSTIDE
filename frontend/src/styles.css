@@ -21,6 +21,7 @@
   --syntax-number: #0f6f8f;
   --claude: #7a3db8;
   --claude-wash: rgba(122, 61, 184, 0.1);
+  --spelling: #cf2350;
 
   --font-ui: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
   --font-source: "Cascadia Code", "JetBrains Mono", "SF Mono", Consolas, ui-monospace, monospace;
@@ -50,6 +51,7 @@
     --syntax-number: #6cc6e6;
     --claude: #c79bff;
     --claude-wash: rgba(199, 155, 255, 0.14);
+    --spelling: #ff7a93;
     color-scheme: dark;
   }
 }
@@ -385,6 +387,10 @@ select {
   color: var(--warning);
 }
 
+.problem.grammar .icon {
+  color: var(--spelling);
+}
+
 .problem-message {
   overflow-wrap: anywhere;
 }
@@ -545,6 +551,100 @@ select {
   background-image: none;
   text-decoration: underline wavy var(--warning);
   text-underline-offset: 3px;
+}
+
+/* spelling / grammar findings (suggestions/layer.ts) */
+
+.editor-surface .cm-suggestion-rule {
+  text-decoration: underline wavy var(--spelling);
+  text-decoration-thickness: 1px;
+  text-decoration-skip-ink: none;
+  text-underline-offset: 3px;
+}
+
+.editor-surface .cm-tooltip:has(> .suggestion-card) {
+  border: 0;
+  background: transparent;
+}
+
+.suggestion-card {
+  max-width: 340px;
+  padding: 8px 10px 6px 12px;
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--spelling);
+  border-radius: 6px;
+  background: var(--paper);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  font: 13px/1.45 var(--font-ui);
+}
+
+.suggestion-card.claude {
+  border-left-color: var(--claude);
+}
+
+.suggestion-reason {
+  margin: 0 0 8px;
+}
+
+.suggestion-none {
+  margin: 0 0 6px;
+  color: var(--pencil);
+}
+
+.suggestion-fixes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.suggestion-fix {
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--paper);
+  font-family: var(--font-source);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.suggestion-fix:hover {
+  background: var(--hover);
+}
+
+.suggestion-fix.primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--paper);
+}
+
+.suggestion-fix.primary:hover {
+  filter: brightness(1.1);
+}
+
+.suggestion-actions {
+  display: flex;
+  gap: 2px;
+  margin: 0 -6px;
+  padding-top: 4px;
+  border-top: 1px solid var(--rule);
+}
+
+.suggestion-action {
+  height: 24px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--pencil);
+  cursor: pointer;
+}
+
+.suggestion-action:hover,
+.suggestion-action:focus-visible {
+  background: var(--hover);
+  color: var(--ink);
 }
 
 .editor-empty {
@@ -710,6 +810,25 @@ select {
 .compile-status[data-state="error"]::before,
 .compile-status[data-state="offline"]::before {
   background: var(--error);
+}
+
+.status-button {
+  height: 22px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--accent);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.status-button:hover {
+  border-color: var(--rule);
+}
+
+.checker-status[data-state="failed"] {
+  color: var(--error);
 }
 
 .ai-selector {

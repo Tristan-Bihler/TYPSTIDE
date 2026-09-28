@@ -1,4 +1,5 @@
-// Status bar: cursor, language, compile status; AI selector in the right corner.
+// Status bar: cursor, language, spelling check, compile status; AI selector in the right
+// corner.
 
 import type { Actions } from "../state/actions";
 import type { AppState, Language, Store } from "../state/store";
@@ -23,6 +24,31 @@ export function compileLabel(state: AppState): string {
   }
 }
 
+/** Text and tooltip of the spelling-check item. */
+export function checkerLabel(state: AppState): { text: string; title: string; install: boolean } {
+  const status = state.checker;
+  if (status === null) return { text: "", title: "", install: false };
+  switch (status.state) {
+    case "not_installed":
+      return { text: "Install spelling check", title: status.reason, install: true };
+    case "installing": {
+      const percent = status.progress === null ? "" : ` ${Math.floor(status.progress * 100)} %`;
+      return { text: `Installing spelling check…${percent}`, title: status.reason, install: false };
+    }
+    case "starting":
+      return { text: "Spelling check starting…", title: status.reason, install: false };
+    case "failed":
+      return { text: "Spelling check off", title: status.reason, install: false };
+    case "ready": {
+      const found = state.active === null ? undefined : state.findings[state.active];
+      const title = "Spelling and grammar (LTeX+, offline). Hover an underline or press Ctrl+. for fixes.";
+      if (found === undefined) return { text: "Spelling check on", title, install: false };
+      const text = found.length === 0 ? "No spelling issues" : found.length === 1 ? "1 spelling issue" : `${found.length} spelling issues`;
+      return { text, title, install: false };
+    }
+  }
+}
+
 export function mountStatusbar(host: HTMLElement, store: Store<AppState>, actions: Actions): void {
   const cursor = el("span", { class: "status-item" });
   const language = el("select", { class: "status-select", "aria-label": "Document language", title: "Language for spelling and grammar checks" });
@@ -30,8 +56,11 @@ export function mountStatusbar(host: HTMLElement, store: Store<AppState>, action
     language.append(el("option", { value: code }, code));
   }
   language.addEventListener("change", () => actions.setLanguage(language.value as Language));
+  const checker = el("span", { class: "status-item checker-status" });
+  const install = el("button", { type: "button", class: "status-button" }, "Install spelling check");
+  install.addEventListener("click", () => void actions.installGrammar());
   const compile = el("span", { class: "status-item compile-status", role: "status" });
-  const left = el("div", { class: "status-left" }, cursor, language, compile);
+  const left = el("div", { class: "status-left" }, cursor, language, checker, install, compile);
   const right = el("div", { class: "status-right" });
   host.append(left, right);
   mountAiSelector(right, store);
@@ -39,6 +68,13 @@ export function mountStatusbar(host: HTMLElement, store: Store<AppState>, action
   store.subscribe((state) => {
     cursor.textContent = state.active ? `Ln ${state.cursor.line}, Col ${state.cursor.column}` : "";
     language.value = state.language;
+    const spelling = checkerLabel(state);
+    checker.hidden = spelling.install || spelling.text === "";
+    checker.textContent = spelling.text;
+    checker.title = spelling.title;
+    checker.dataset["state"] = state.checker?.state ?? "";
+    install.hidden = !spelling.install;
+    install.title = spelling.title;
     compile.textContent = compileLabel(state);
     compile.dataset["state"] = state.connected ? state.compile.state : "offline";
   });

@@ -1,6 +1,6 @@
 // App state store: one plain object, shallow updates, synchronous subscribers.
 
-import type { AIOverview, CompileState, Problem, Tree, WorkspaceInfo } from "../api/types";
+import type { AIOverview, CheckerStatus, CompileState, Problem, Tree, WorkspaceInfo } from "../api/types";
 
 export type Language = "de-DE" | "en-US";
 
@@ -8,6 +8,7 @@ export interface OpenDoc {
   path: string;
   saved: string; // content on disk
   content: string; // content in the editor
+  version: number; // increases with every edit; checks report the version they saw
 }
 
 export interface AppState {
@@ -15,7 +16,9 @@ export interface AppState {
   tree: Tree | null;
   docs: OpenDoc[];
   active: string | null;
-  problems: Problem[];
+  problems: Problem[]; // from the last compile
+  findings: Record<string, Problem[]>; // spelling/grammar per open file
+  checker: CheckerStatus | null;
   compile: { state: CompileState; main: string | null; durationMs: number | null };
   connected: boolean;
   cursor: { line: number; column: number };
@@ -29,6 +32,8 @@ export const initialState: AppState = {
   docs: [],
   active: null,
   problems: [],
+  findings: {},
+  checker: null,
   compile: { state: "no_workspace", main: null, durationMs: null },
   connected: false,
   cursor: { line: 1, column: 1 },
@@ -63,4 +68,9 @@ export class Store<T extends object> {
 
 export function isDirty(doc: OpenDoc): boolean {
   return doc.content !== doc.saved;
+}
+
+/** Compile problems plus spelling/grammar findings of the open files. */
+export function allProblems(state: AppState): Problem[] {
+  return [...state.problems, ...Object.values(state.findings).flat()];
 }

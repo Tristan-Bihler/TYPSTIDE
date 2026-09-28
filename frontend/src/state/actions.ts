@@ -19,6 +19,7 @@ export interface Actions {
   exportPdf(): Promise<void>;
   jumpTo(problem: Problem): Promise<void>;
   setLanguage(language: Language): void;
+  installGrammar(): Promise<void>;
 }
 
 /** File types the editor opens (mirrors TEXT_EXTENSIONS in services/workspace.py). */
