@@ -8,6 +8,7 @@ from fastapi import Depends, Request
 from typst_writer.config import AppConfig
 from typst_writer.services.compile import CompileService
 from typst_writer.services.completion import CompletionService
+from typst_writer.services.formatting import FormattingService
 from typst_writer.services.grammar import GrammarService
 from typst_writer.services.local_check import LocalAI
 from typst_writer.services.review import ReviewService
@@ -25,6 +26,7 @@ class Services:
     workspace: WorkspaceService
     compile: CompileService
     snippets: SnippetService
+    formatting: FormattingService
     review: ReviewService
     settings: SettingsService
     grammar: GrammarService

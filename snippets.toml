@@ -129,3 +129,31 @@ group = "bibliography"
 kind = "dialog"
 dialog = "bibliography"
 in_toolbar = false
+
+# Format controls in the insert toolbar (font, size, line spacing); the code is generated in
+# backend/src/typst_writer/domain/formatting.py and compiled in tests/test_formatting.py.
+[format]
+default_font = "Libertinus Serif"  # Typst's default text font
+default_size = 11                  # Typst's default size (pt)
+sizes = [8, 9, 10, 10.5, 11, 12, 14, 16, 18, 20, 24, 28, 36]
+
+# Word-like line spacing. Typst's `leading` is the gap between lines (from the baseline to
+# the next line's cap height), so the distance between baselines is about 0.66em + leading
+# for serif fonts. Word's "single" is about 1.15em for Times-like fonts; the values below
+# give 1.15, 1.32, 1.72 and 2.31em. Typst's default (0.65em) is Word's 1.15.
+[[format.line_spacing]]
+label = "1.0"
+leading = "0.5em"
+
+[[format.line_spacing]]
+label = "1.15"
+leading = "0.65em"
+default = true
+
+[[format.line_spacing]]
+label = "1.5"
+leading = "1.05em"
+
+[[format.line_spacing]]
+label = "2.0"
+leading = "1.65em"

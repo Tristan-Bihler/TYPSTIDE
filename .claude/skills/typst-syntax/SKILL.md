@@ -48,6 +48,21 @@ pin changes. If you add a pattern here, add it to the example project too.
 
 Image formats `image()` accepts: png, jpg/jpeg, gif, svg, webp, pdf.
 
+### Font, size, line spacing (Format controls, `domain/formatting.py`)
+
+| Want | Typst 0.15.0 |
+|---|---|
+| Font / size of some words | `#text(font: "Liberation Serif", size: 14pt)[Wörter]` — one call, arguments merged |
+| Whole document | `#set text(font: "…", size: 12pt)` near the top of the main file, **after** any `#show: template` line (a later set rule wins) |
+| Line spacing of paragraphs | `#[` newline `#set par(leading: 1.05em)` newline paragraphs newline `]` — a scoped block, no extra box |
+| Whole document line spacing | `#set par(leading: 1.05em)` |
+
+`leading` is the gap from one line's baseline to the next line's cap height, so the
+baseline distance is about cap height (≈ 0.66em for serif fonts) + leading. Word-like
+values (measured in `tests/test_formatting.py`): 1.0 → `0.5em`, 1.15 → `0.65em` (Typst's
+default), 1.5 → `1.05em`, 2.0 → `1.65em`. Font names are strings: escape `"` and `\`
+(`escape_string`); an unknown font only falls back to the next one, it is not an error.
+
 ## Escaping user text
 
 Captions, table cells and other user-typed text go inside content blocks `[...]`. Escape

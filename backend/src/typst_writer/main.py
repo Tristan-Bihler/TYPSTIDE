@@ -19,11 +19,13 @@ from typst_writer.api.deps import Services
 from typst_writer.api.schemas import ErrorResponse
 from typst_writer.config import SNIPPETS_PATH, AppConfig, load_config
 from typst_writer.domain import errors
+from typst_writer.domain.formatting import CannotFormatError
 from typst_writer.infra.app_dirs import cache_dir, config_dir
 from typst_writer.infra.state_store import StateStore
 from typst_writer.ports.compiler import CompileFailedError
 from typst_writer.services.compile import CompileService
 from typst_writer.services.completion import CompletionService
+from typst_writer.services.formatting import FormattingService
 from typst_writer.services.grammar import GrammarService
 from typst_writer.services.local_check import LocalAI
 from typst_writer.services.review import ReviewService
@@ -52,6 +54,7 @@ _STATUS: dict[type[errors.WorkspaceError], tuple[int, str]] = {
     errors.AIFailedError: (502, "ai_failed"),
     errors.TextTooLongError: (413, "too_long"),
     errors.CheckerUnavailableError: (409, "checker_unavailable"),
+    CannotFormatError: (422, "cannot_format"),
 }
 
 
@@ -107,6 +110,7 @@ def create_app(
         workspace=workspace,
         compile=CompileService(TypstPyCompiler(), cache_dir()),
         snippets=SnippetService(SNIPPETS_PATH),
+        formatting=FormattingService(SNIPPETS_PATH),
         review=ReviewService(
             ClaudeCliProvider(config.claude.models, config.claude.timeout_seconds),
             ollama,

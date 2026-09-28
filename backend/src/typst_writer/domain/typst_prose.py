@@ -9,6 +9,7 @@ support produces around markup. Offsets are Python string indices.
 """
 
 import re
+from array import array
 from dataclasses import dataclass
 
 _LABEL = re.compile(r"<[\w\-.:]+>")
@@ -19,6 +20,16 @@ _CODE_LINE_KEYWORDS = {"let", "set", "show", "import", "include", "if", "for", "
 
 
 @dataclass(frozen=True)
+class Frame:
+    """A stretch of markup: the document itself, or one `[...]` content block."""
+
+    parent: int  # index into ProseMap.frames; -1 for the document
+    opener: int  # index of the "[" (-1 for the document)
+    expr_start: int  # index of the "#" of `#name(...)[...]` or `#[...]`; -1 otherwise
+    callee: str | None  # "text" for `#text(...)[...]`; None for `#[...]` and others
+
+
+@dataclass(frozen=True)
 class ProseMap:
     text: str
     markup: bytearray  # 1 where the character is markup, not prose
@@ -26,6 +37,11 @@ class ProseMap:
     # 1 for punctuation glued to a reference ("@fig:a)." -> ")."): LTeX+ takes it as part
     # of the reference and never sees it.
     swallowed: bytearray
+    # For every index 0..len(text): the frame whose markup the position lies *between
+    # tokens* of (a place where content could be cut and wrapped), or -1 inside a token
+    # (code, math, raw text, a comment, an escape, a label or reference).
+    owner: array[int]
+    frames: tuple[Frame, ...]
 
     def is_markup(self, start: int, end: int) -> bool:
         """Whether any character in [start, end) is markup."""
@@ -35,7 +51,14 @@ class ProseMap:
 def scan(text: str) -> ProseMap:
     scanner = _Scanner(text)
     scanner.markup_mode(0, closing=False)
-    return ProseMap(text, scanner.marks, frozenset(scanner.starts), scanner.swallowed)
+    return ProseMap(
+        text,
+        scanner.marks,
+        frozenset(scanner.starts),
+        scanner.swallowed,
+        scanner.owner,
+        tuple(scanner.frames),
+    )
 
 
 class _Scanner:
@@ -45,20 +68,36 @@ class _Scanner:
         self.marks = bytearray(self.n)
         self.swallowed = bytearray(self.n)
         self.starts: set[int] = set()
+        self.owner = array("i", [-1]) * (self.n + 1)
+        self.frames: list[Frame] = []
+        self.frame_stack: list[int] = []
 
     def mark(self, start: int, end: int) -> None:
         self.marks[start:end] = b"\x01" * (min(end, self.n) - start)
 
     # --- markup (prose) mode ------------------------------------------------------
 
-    def markup_mode(self, i: int, closing: bool) -> int:
+    def markup_mode(
+        self, i: int, closing: bool, expr_start: int = -1, callee: str | None = None
+    ) -> int:
         """Scan prose from i; with `closing`, stop after the `]` that ends this block."""
+        parent = self.frame_stack[-1] if self.frame_stack else -1
+        frame = len(self.frames)
+        self.frames.append(Frame(parent, i - 1 if closing else -1, expr_start, callee))
+        self.frame_stack.append(frame)
+        try:
+            return self._markup(i, closing, frame)
+        finally:
+            self.frame_stack.pop()
+
+    def _markup(self, i: int, closing: bool, frame: int) -> int:
         text, n = self.text, self.n
         pending = True  # the next prose character starts a block
         prose_on_line = False
         pending_after_line = False  # the line ended with "@ref." (see below)
         line_start = True
         while i < n:
+            self.owner[i] = frame
             if line_start:
                 line_start = False
                 marker = _LINE_MARKER.match(text, i)
@@ -130,6 +169,7 @@ class _Scanner:
                 self._prose(i, pending)
                 pending, prose_on_line = False, True
                 i += 1
+        self.owner[min(i, n)] = frame
         return i
 
     def _prose(self, i: int, pending: bool) -> None:
@@ -177,6 +217,7 @@ class _Scanner:
             self.mark(i, j)  # a lone "#"
             return j
         self.mark(i, j)
+        callee = ident.group() if ident is not None else None
         while j < self.n:
             ident = _IDENT.match(text, j)
             if ident is not None and (j == i + 1 or text[j - 1] == "."):
@@ -189,7 +230,7 @@ class _Scanner:
                 j = self._code_group(j)
             elif text[j] == "[":
                 self.mark(j, j + 1)
-                j = self.markup_mode(j + 1, closing=True)
+                j = self.markup_mode(j + 1, closing=True, expr_start=i, callee=callee)
             else:
                 break
         return j

@@ -40,6 +40,14 @@ from typst_writer.domain.models import (
 from typst_writer.infra.paths import WorkspaceGuard
 from typst_writer.infra.state_store import OpenTabs
 from typst_writer.ports.rule_checker import CheckerStatus
+from typst_writer.services.formatting import (
+    CurrentFormat,
+    CurrentFormatRequest,
+    DocumentFormatRequest,
+    FormatOptions,
+    FormatRequest,
+    TextEdit,
+)
 from typst_writer.services.grammar import GrammarOverview
 from typst_writer.services.references import WorkspaceIndex, build_index
 from typst_writer.services.review import AIOverview
@@ -160,6 +168,31 @@ async def render_snippet(snippet_id: str, body: RenderRequest, s: ServicesDep) -
     guard = s.workspace.guard
     code = s.snippets.render(snippet_id, body.params, guard, _index(guard, body.overlays))
     return RenderResponse(code=code)
+
+
+# --- format controls (font, size, line spacing) ---------------------------------------
+
+
+@router.get("/format/options")
+async def format_options(s: ServicesDep, refresh: bool = False) -> FormatOptions:
+    return await asyncio.to_thread(s.formatting.options, refresh)  # reads the system fonts
+
+
+@router.post("/format/apply")
+async def format_apply(body: FormatRequest, s: ServicesDep) -> TextEdit:
+    """The edit that formats the selection (a 422 says why it cannot)."""
+    return await asyncio.to_thread(s.formatting.apply, body)
+
+
+@router.post("/format/document")
+async def format_document(body: DocumentFormatRequest, s: ServicesDep) -> TextEdit:
+    """The edit that sets the default for the whole document (in the main file)."""
+    return await asyncio.to_thread(s.formatting.document, body)
+
+
+@router.post("/format/current")
+async def format_current(body: CurrentFormatRequest, s: ServicesDep) -> CurrentFormat:
+    return s.formatting.current(body)
 
 
 @router.post("/workspace/references")
