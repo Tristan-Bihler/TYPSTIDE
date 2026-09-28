@@ -187,3 +187,55 @@ def test_old_settings_file_keeps_the_ai_slots(client: TestClient, isolated_app_h
     saved = json.loads(path.read_text(encoding="utf-8"))
     assert saved["ai"]["claude_model"] == "opus"
     assert saved["grammar"]["language"] == "en-US"
+
+
+def test_word_lists_are_per_project(client: TestClient, workspace: Path, tmp_path: Path) -> None:
+    other = tmp_path / "other-thesis"
+    other.mkdir()
+    client.post("/api/workspace/open", json={"path": str(workspace)})
+    client.post("/api/grammar/dictionary", json={"language": "de-DE", "word": "Messplatz"})
+    client.post("/api/grammar/dictionary", json={"language": "de-DE", "word": "Aufbau"})
+    assert client.get("/api/grammar").json()["settings"]["dictionary"] == {
+        "de-DE": ["Aufbau", "Messplatz"]
+    }
+    client.post("/api/workspace/open", json={"path": str(other)})
+    assert client.get("/api/grammar").json()["settings"]["dictionary"] == {}
+    client.post("/api/grammar/dictionary", json={"language": "de-DE", "word": "Sonstiges"})
+    client.post("/api/workspace/open", json={"path": str(workspace)})
+    params = {"language": "de-DE", "word": "Aufbau"}
+    removed = client.delete("/api/grammar/dictionary", params=params).json()
+    assert removed["settings"]["dictionary"] == {"de-DE": ["Messplatz"]}
+
+
+def test_words_need_an_open_folder(client: TestClient) -> None:
+    response = client.post("/api/grammar/dictionary", json={"language": "de-DE", "word": "x"})
+    assert response.status_code == 409
+    assert response.json()["code"] == "no_workspace"
+
+
+def test_global_words_from_before_move_into_the_open_project(
+    client: TestClient, workspace: Path, isolated_app_home: Path
+) -> None:
+    path = isolated_app_home / "config" / "settings.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    legacy = {"grammar": {"language": "de-DE", "dictionary": {"de-DE": ["Altwort"]}}}
+    path.write_text(json.dumps(legacy), encoding="utf-8")
+    client.post("/api/workspace/open", json={"path": str(workspace)})
+    words = client.get("/api/grammar").json()["settings"]["dictionary"]
+    assert words == {"de-DE": ["Altwort"]}
+    saved = json.loads(path.read_text(encoding="utf-8"))["grammar"]
+    assert saved["dictionary"] == {}
+    assert saved["dictionaries"] == {str(workspace.resolve()): {"de-DE": ["Altwort"]}}
+
+
+def test_checks_use_the_open_projects_words(workspace: Path, fake_ltex: Path) -> None:
+    with TestClient(create_app(load_config()), base_url="http://127.0.0.1") as client:
+        client.post("/api/workspace/open", json={"path": str(workspace)})
+        with _connect(client) as ws:
+            _wait_ready(ws)
+            _open(ws, "Ein Fehlr.")
+            assert len(receive_suggestions(ws, CHAPTER)["suggestions"]) == 1
+            client.post("/api/grammar/dictionary", json={"language": "de-DE", "word": "Fehlr"})
+            assert receive_suggestions(ws, CHAPTER)["suggestions"] == []
+            client.delete("/api/grammar/dictionary", params={"language": "de-DE", "word": "Fehlr"})
+            assert len(receive_suggestions(ws, CHAPTER)["suggestions"]) == 1

@@ -127,8 +127,17 @@ class GrammarSettings(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     language: Language = "de-DE"
-    # Words accepted by the spell check ("Add to dictionary"), per language.
+    # Before Phase 6 one list for all projects; moved into the next opened project.
     dictionary: dict[Language, list[str]] = {}
+    # Words accepted by the spell check, per project folder (absolute path) and language.
+    dictionaries: dict[str, dict[Language, list[str]]] = {}
+
+
+class GrammarView(BaseModel):
+    """What the UI sees: the language and the open project's word list."""
+
+    language: Language
+    dictionary: dict[Language, list[str]]
 
 
 DictionaryWord = Annotated[str, Field(min_length=1, max_length=100, pattern=r"^[^\s\x00-\x1f]+$")]

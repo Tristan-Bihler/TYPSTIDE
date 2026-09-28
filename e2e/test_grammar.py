@@ -92,3 +92,22 @@ def test_switching_the_language_rechecks(page: Page, workspace: Path) -> None:
     page.get_by_label("Document language").select_option("en-US")
     expect(underline(page, "teh")).to_be_visible()
     expect(underline(page, "Fehlr")).to_have_count(0)
+
+
+def test_word_list_in_settings(page: Page, workspace: Path) -> None:
+    open_chapter(page, workspace)
+    expect(underline(page, "Fehlr")).to_be_visible()
+    page.keyboard.press("Control+,")
+    words = page.locator(".words-section")
+    expect(words).to_contain_text("in Bachelorarbeit")
+    words.get_by_label("New word").fill("zwei Wörter")
+    words.get_by_role("button", name="Add").click()
+    expect(words.get_by_role("alert")).to_have_text("One word at a time (no spaces).")
+    words.get_by_label("New word").fill("Fehlr")
+    words.get_by_role("button", name="Add").click()
+    expect(words.locator(".word")).to_have_text(["Fehlr"])
+    expect(underline(page, "Fehlr")).to_have_count(0)  # rechecked with the new word
+    words.get_by_role("button", name="Remove Fehlr").click()
+    expect(words.locator(".word")).to_have_count(0)
+    page.locator("dialog.settings-dialog").get_by_role("button", name="Done").click()
+    expect(underline(page, "Fehlr")).to_be_visible()

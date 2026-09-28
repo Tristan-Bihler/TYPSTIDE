@@ -17,6 +17,7 @@ import { mountTopbar } from "./topbar/fileActions";
 import { mountInsertToolbar } from "./topbar/insertToolbar";
 import { reviewBlocker, reviewSelection } from "./review/review";
 import { applyTheme, openSettings } from "./settings/dialog";
+import { wordsSection } from "./settings/words";
 import { ignoreKey } from "./suggestions/layer";
 import { suggestionProblems } from "./suggestions/problems";
 import { showContextMenu } from "./ui/contextMenu";
@@ -146,7 +147,7 @@ export class App implements Actions {
   }
 
   openSettings(): void {
-    openSettings({ store: this.store, actions: this });
+    openSettings({ store: this.store, actions: this, sections: [() => wordsSection(this.store)] });
   }
 
   start(): void {

@@ -74,7 +74,9 @@ def create_app(config: AppConfig) -> FastAPI:
     workspace.restore_last()
     settings = SettingsService(config_dir() / "settings.json")
     hub = websocket.Hub(workspace)
-    grammar = GrammarService(config, settings)
+    grammar = GrammarService(
+        config, settings, lambda: str(workspace.guard.root) if workspace.info() else None
+    )
     grammar.subscribe(hub.checker_status)
     ollama = OllamaProvider(config.ollama)
     services = Services(

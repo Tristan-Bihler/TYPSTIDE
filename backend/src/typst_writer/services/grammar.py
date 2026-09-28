@@ -15,10 +15,11 @@ from pydantic import BaseModel
 from typst_writer.adapters.ltex import LtexChecker
 from typst_writer.adapters.none_checker import NoneRuleChecker
 from typst_writer.config import AppConfig
-from typst_writer.domain.errors import CheckerUnavailableError, InvalidNameError
+from typst_writer.domain.errors import CheckerUnavailableError, InvalidNameError, NoWorkspaceError
 from typst_writer.domain.models import (
     MAX_DICTIONARY_WORDS,
     GrammarSettings,
+    GrammarView,
     Language,
     Suggestion,
 )
@@ -46,13 +47,19 @@ StatusListener = Callable[[CheckerStatus], None]
 
 class GrammarOverview(BaseModel):
     status: CheckerStatus
-    settings: GrammarSettings
+    settings: GrammarView
 
 
 class GrammarService:
-    def __init__(self, config: AppConfig, settings: SettingsService) -> None:
+    def __init__(
+        self,
+        config: AppConfig,
+        settings: SettingsService,
+        project: Callable[[], str | None] = lambda: None,
+    ) -> None:
         self._config = config
         self._settings = settings
+        self._project = project  # absolute path of the open folder, if any
         self._listeners: set[StatusListener] = set()
         self._tasks: set[asyncio.Task[None]] = set()
         self._install_status: CheckerStatus | None = None  # while installing
@@ -79,7 +86,11 @@ class GrammarService:
         return self._install_status or self._checker.status()
 
     def overview(self) -> GrammarOverview:
-        return GrammarOverview(status=self.status(), settings=self._settings.grammar())
+        settings = self.settings()
+        project = self._project()
+        words = settings.dictionaries.get(project, {}) if project is not None else {}
+        view = GrammarView(language=settings.language, dictionary=words)
+        return GrammarOverview(status=self.status(), settings=view)
 
     def subscribe(self, listener: StatusListener) -> Callable[[], None]:
         self._listeners.add(listener)
@@ -163,30 +174,62 @@ class GrammarService:
     # --- settings ----------------------------------------------------------------------
 
     def settings(self) -> GrammarSettings:
-        return self._settings.grammar()
+        """The stored settings; a global word list from before Phase 6 moves into the open
+        project the first time one is open."""
+        settings = self._settings.grammar()
+        project = self._project()
+        if project is None or not settings.dictionary:
+            return settings
+        words = dict(settings.dictionaries.get(project, {}))
+        for language, legacy in settings.dictionary.items():
+            merged = set(words.get(language, [])) | set(legacy)
+            words[language] = sorted(merged, key=str.casefold)[:MAX_DICTIONARY_WORDS]
+        settings = settings.model_copy(
+            update={"dictionary": {}, "dictionaries": {**settings.dictionaries, project: words}}
+        )
+        self._settings.save_grammar(settings)
+        return settings
+
+    def _project_words(self, language: Language) -> list[str]:
+        project = self._project()
+        if project is None:
+            return []
+        return list(self.settings().dictionaries.get(project, {}).get(language, []))
+
+    def _save_project_words(self, language: Language, words: list[str]) -> None:
+        project = self._project()
+        if project is None:
+            raise NoWorkspaceError()
+        current = self.settings()
+        project_words = {**current.dictionaries.get(project, {}), language: words}
+        dictionaries = {**current.dictionaries, project: project_words}
+        self._settings.save_grammar(current.model_copy(update={"dictionaries": dictionaries}))
 
     def set_language(self, language: Language) -> GrammarOverview:
-        current = self._settings.grammar()
+        current = self.settings()
         self._settings.save_grammar(current.model_copy(update={"language": language}))
         return self.overview()
 
     def add_word(self, language: Language, word: str) -> GrammarOverview:
-        current = self._settings.grammar()
-        words = list(current.dictionary.get(language, []))
+        """Accept `word` in the open project's word list."""
+        words = self._project_words(language)
         if word not in words:
             if len(words) >= MAX_DICTIONARY_WORDS:
-                raise InvalidNameError(f"The dictionary is full ({MAX_DICTIONARY_WORDS} words).")
+                raise InvalidNameError(f"The word list is full ({MAX_DICTIONARY_WORDS} words).")
             words.append(word)
-        dictionary = {**current.dictionary, language: sorted(words, key=str.casefold)}
-        self._settings.save_grammar(current.model_copy(update={"dictionary": dictionary}))
+        self._save_project_words(language, sorted(words, key=str.casefold))
+        return self.overview()
+
+    def remove_word(self, language: Language, word: str) -> GrammarOverview:
+        words = [w for w in self._project_words(language) if w != word]
+        self._save_project_words(language, words)
         return self.overview()
 
     # --- checking ----------------------------------------------------------------------
 
     async def check(self, path: str, source: str) -> list[Suggestion]:
-        settings = self._settings.grammar()
-        words = settings.dictionary.get(settings.language, [])
-        return await self._checker.check(path, source, settings.language, words)
+        language = self._settings.grammar().language
+        return await self._checker.check(path, source, language, self._project_words(language))
 
     async def forget(self, path: str) -> None:
         await self._checker.forget(path)

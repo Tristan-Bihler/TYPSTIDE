@@ -130,6 +130,11 @@ export const api = {
     request("PUT", "/api/grammar/settings", { language }),
   addToDictionary: (language: GrammarSettings["language"], word: string): Promise<GrammarOverview> =>
     request("POST", "/api/grammar/dictionary", { language, word }),
+  removeFromDictionary: (language: GrammarSettings["language"], word: string): Promise<GrammarOverview> =>
+    request(
+      "DELETE",
+      `/api/grammar/dictionary?${new URLSearchParams({ language, word }).toString()}`,
+    ),
 
   async exportPdf(overlays: Record<string, string>): Promise<{ blob: Blob; filename: string }> {
     const response = await fetch("/api/export/pdf", {

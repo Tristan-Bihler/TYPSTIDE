@@ -3,7 +3,7 @@
 import asyncio
 import contextlib
 from collections.abc import Coroutine
-from typing import Any
+from typing import Annotated, Any
 from urllib.parse import quote
 
 from fastapi import APIRouter, Query, Request, Response
@@ -29,6 +29,7 @@ from typst_writer.api.schemas import (
 from typst_writer.domain.errors import AIFailedError, NoMainFileError
 from typst_writer.domain.models import (
     AISettings,
+    Language,
     ReviewRequest,
     ReviewResult,
     Snippet,
@@ -194,6 +195,15 @@ async def grammar_install(s: ServicesDep) -> GrammarOverview:
 @router.put("/grammar/settings")
 async def grammar_settings(body: GrammarLanguageRequest, s: ServicesDep) -> GrammarOverview:
     overview = s.grammar.set_language(body.language)
+    s.hub.recheck_all()
+    return overview
+
+
+@router.delete("/grammar/dictionary")
+async def grammar_remove_word(
+    language: Language, word: Annotated[str, Query(max_length=100)], s: ServicesDep
+) -> GrammarOverview:
+    overview = s.grammar.remove_word(language, word)
     s.hub.recheck_all()
     return overview
 
