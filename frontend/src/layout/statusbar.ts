@@ -100,7 +100,7 @@ export function mountStatusbar(host: HTMLElement, store: Store<AppState>, action
     const count = wordLabel(state);
     words.textContent = count.text;
     words.title = count.title;
-    saved.textContent = state.saveNotice === "saved" ? "Saved" : "";
+    saved.textContent = state.saveNotice ?? "";
     compile.dataset["state"] = state.connected ? state.compile.state : "offline";
   });
 }

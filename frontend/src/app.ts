@@ -8,6 +8,7 @@ import { pickFolder } from "./filetree/folderPicker";
 import { mountFileTree } from "./filetree/tree";
 import { buildShell } from "./layout/layout";
 import { mountStatusbar } from "./layout/statusbar";
+import { onDesktopBridge, type DesktopBridge } from "./desktop/bridge";
 import { blockStart } from "./preview/follow";
 import { PreviewPane } from "./preview/preview";
 import { mountProblems } from "./problems/panel";
@@ -62,6 +63,8 @@ export class App implements Actions {
   private saveTabsTimer = 0;
   private noticeTimer = 0;
   private followTimer = 0;
+  /** The Windows app's native dialogs; null in a browser. */
+  private desktop: DesktopBridge | null = null;
   /** "path:offset" of the block the preview last followed (resent only when it changes). */
   private followed = "";
 
@@ -120,6 +123,15 @@ export class App implements Actions {
       if (state.docs.length !== previous.docs.length || state.active !== previous.active || state.cursor !== previous.cursor) {
         this.scheduleSaveTabs();
       }
+    });
+    onDesktopBridge(window, (bridge) => {
+      this.desktop = bridge;
+      bridge.setUnsaved(this.store.get().docs.some(isDirty));
+    });
+    // The window asks before closing while files are unsaved.
+    this.store.subscribe((state, previous) => {
+      const unsaved = state.docs.some(isDirty);
+      if (unsaved !== previous.docs.some(isDirty)) this.desktop?.setUnsaved(unsaved);
     });
     window.addEventListener("beforeunload", (event) => {
       if (this.store.get().docs.some(isDirty)) event.preventDefault();
@@ -507,9 +519,13 @@ export class App implements Actions {
       return;
     }
     this.updateDoc(path, { saved: doc.content });
-    this.store.set({ saveNotice: "saved" });
+    this.notice("Saved");
+  }
+
+  private notice(text: string, ms = SAVED_NOTICE_MS): void {
+    this.store.set({ saveNotice: text });
     window.clearTimeout(this.noticeTimer);
-    this.noticeTimer = window.setTimeout(() => this.store.set({ saveNotice: null }), SAVED_NOTICE_MS);
+    this.noticeTimer = window.setTimeout(() => this.store.set({ saveNotice: null }), ms);
   }
 
   // --- remembered tabs -------------------------------------------------------------
@@ -553,7 +569,8 @@ export class App implements Actions {
       if (choice === null) return;
       if (choice === "save") await this.saveAll();
     }
-    const folder = await pickFolder(state.workspace?.root ?? null);
+    const start = state.workspace?.root ?? null;
+    const folder = this.desktop ? await this.desktop.pickFolder(start) : await pickFolder(start);
     if (folder === null) return;
     try {
       await api.openWorkspace(folder);
@@ -676,6 +693,11 @@ export class App implements Actions {
     const overlays = this.overlays();
     try {
       const { blob, filename } = await api.exportPdf(overlays);
+      if (this.desktop) {
+        const saved = await this.desktop.savePdf(filename, blob);
+        if (saved !== null) this.notice(`Exported to ${basename(saved.replaceAll("\\", "/"))}`, 4000);
+        return;
+      }
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;

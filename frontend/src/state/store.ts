@@ -23,7 +23,7 @@ export interface AppState {
   localPending: number; // paragraphs the local AI still has to check
   ui: UiSettings;
   wordCount: WordCount | null;
-  saveNotice: "saved" | null; // shown briefly after an autosave
+  saveNotice: string | null; // shown briefly in the status bar ("Saved", "Exported to …")
   compile: { state: CompileState; main: string | null; durationMs: number | null };
   connected: boolean;
   cursor: { line: number; column: number };
