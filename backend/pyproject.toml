@@ -33,5 +33,6 @@ python_version = "3.12"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["tests"]
 # Starlette's TestClient now prefers `httpx2`; httpx is the client listed in CLAUDE.md.
 filterwarnings = ["ignore:Using `httpx` with `starlette.testclient`"]

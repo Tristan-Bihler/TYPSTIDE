@@ -48,6 +48,17 @@ class WorkspaceGuard:
             raise PathOutsideWorkspaceError(rel)
         return candidate
 
+    def resolve_entry(self, rel: str) -> Path:
+        """Like `resolve`, but a symlink as the last segment is returned as the link itself.
+
+        Use for operations on the entry (rename, delete), not on the file it points to.
+        """
+        pure = PurePosixPath(rel.replace("\\", "/"))
+        if pure.name in ("", ".", ".."):
+            raise PathOutsideWorkspaceError(rel)
+        self.resolve(rel)  # full validation, including where a symlink points
+        return self.resolve(pure.parent.as_posix()) / pure.name
+
     def relative(self, path: Path) -> str:
         """Workspace-relative POSIX path of an absolute path inside the workspace."""
         resolved = path.resolve()

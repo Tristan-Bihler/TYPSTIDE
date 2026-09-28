@@ -2,14 +2,10 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from helpers import FRONTEND_ORIGIN
 
 from typst_writer.config import AppConfig, TypstConfig, load_config
 from typst_writer.main import create_app
-
-
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(create_app(load_config()))
 
 
 def test_health_reports_pinned_typst_version(client: TestClient) -> None:
@@ -19,11 +15,17 @@ def test_health_reports_pinned_typst_version(client: TestClient) -> None:
 
 
 def test_cors_allows_only_local_frontend_origin(client: TestClient) -> None:
-    allowed = client.get("/api/health", headers={"Origin": "http://127.0.0.1:5173"})
-    assert allowed.headers.get("access-control-allow-origin") == "http://127.0.0.1:5173"
+    allowed = client.get("/api/health", headers={"Origin": FRONTEND_ORIGIN})
+    assert allowed.headers.get("access-control-allow-origin") == FRONTEND_ORIGIN
 
     foreign = client.get("/api/health", headers={"Origin": "http://evil.example"})
     assert "access-control-allow-origin" not in foreign.headers
+
+
+def test_foreign_host_header_is_rejected(client: TestClient) -> None:
+    """DNS rebinding: evil.example resolving to 127.0.0.1 must not reach the API."""
+    response = client.get("/api/health", headers={"Host": "evil.example"})
+    assert response.status_code == 400
 
 
 def test_api_docs_are_disabled(client: TestClient) -> None:
