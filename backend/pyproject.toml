@@ -38,4 +38,7 @@ testpaths = ["tests"]
 pythonpath = ["tests"]
 # Starlette's TestClient now prefers `httpx2`; httpx is the client listed in CLAUDE.md.
 filterwarnings = ["ignore:Using `httpx` with `starlette.testclient`"]
-markers = ["ltex: uses the real LTeX+ (skipped when it is not installed)"]
+markers = [
+    "ltex: uses the real LTeX+ (skipped when it is not installed)",
+    "tinymist: uses the real Tinymist (skipped when it is not installed)",
+]

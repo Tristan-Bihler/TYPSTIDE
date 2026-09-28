@@ -70,6 +70,14 @@ class LtexConfig(_Section):
     check_timeout_seconds: int = 30
 
 
+class TinymistConfig(_Section):
+    version: str = "0.15.8"
+    url: str = ""
+    sha256: dict[str, str] = {}  # platform key (e.g. "win32-x64") -> checksum of the program
+    startup_timeout_seconds: int = 30
+    request_timeout_seconds: int = 10
+
+
 class AppConfig(_Section):
     server: ServerConfig = ServerConfig()
     typst: TypstConfig = TypstConfig()
@@ -78,6 +86,7 @@ class AppConfig(_Section):
     claude: ClaudeConfig = ClaudeConfig()
     ollama: OllamaConfig = OllamaConfig()
     ltex: LtexConfig = LtexConfig()
+    tinymist: TinymistConfig = TinymistConfig()
 
 
 def load_config(path: Path | None = None) -> AppConfig:

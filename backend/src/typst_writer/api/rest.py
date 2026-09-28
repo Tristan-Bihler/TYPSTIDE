@@ -29,6 +29,8 @@ from typst_writer.api.schemas import (
 from typst_writer.domain.errors import AIFailedError, NoMainFileError
 from typst_writer.domain.models import (
     AISettings,
+    CompletionItem,
+    CompletionRequest,
     Language,
     ReviewRequest,
     ReviewResult,
@@ -37,6 +39,7 @@ from typst_writer.domain.models import (
 )
 from typst_writer.infra.paths import WorkspaceGuard
 from typst_writer.infra.state_store import OpenTabs
+from typst_writer.ports.rule_checker import CheckerStatus
 from typst_writer.services.grammar import GrammarOverview
 from typst_writer.services.references import WorkspaceIndex, build_index
 from typst_writer.services.review import AIOverview
@@ -250,6 +253,26 @@ async def _unless_disconnected(
 async def review(body: ReviewRequest, request: Request, s: ServicesDep) -> ReviewResult:
     """Review the selection with the model in the Claude slot (NoneProvider when None)."""
     return await _unless_disconnected(request, s.review.review(body))
+
+
+# --- autocomplete (Tinymist) ---------------------------------------------------------
+
+
+@router.get("/completion")
+async def completion_status(s: ServicesDep) -> CheckerStatus:
+    return s.completion.status()
+
+
+@router.post("/completion/install")
+async def completion_install(s: ServicesDep) -> CheckerStatus:
+    """Start downloading Tinymist (only on this explicit request)."""
+    return s.completion.install()
+
+
+@router.post("/complete")
+async def complete(body: CompletionRequest, s: ServicesDep) -> list[CompletionItem]:
+    """Completions at the cursor of an open file (its unsaved text is in the request)."""
+    return await s.completion.complete(body)
 
 
 # --- export --------------------------------------------------------------------------

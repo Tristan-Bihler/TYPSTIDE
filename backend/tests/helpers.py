@@ -63,6 +63,19 @@ def make_fake_ltex_install(home: Path) -> Path:
     return home
 
 
+FAKE_TINYMIST = Path(__file__).parent / "fakes" / "tinymist.py"
+
+
+def make_fake_tinymist(directory: Path) -> Path:
+    """A `tinymist` program that runs the fake language server (ignores `lsp`)."""
+    directory.mkdir(parents=True, exist_ok=True)
+    program = directory / "tinymist"
+    run = f"runpy.run_path({str(FAKE_TINYMIST)!r}, run_name='__main__')"
+    program.write_text(f"#!{sys.executable}\nimport runpy\n{run}\n", encoding="utf-8")
+    program.chmod(0o755)
+    return program
+
+
 def receive_suggestions(
     ws: WebSocketTestSession, path: str, source: str = "rule", limit: int = 40
 ) -> dict[str, Any]:

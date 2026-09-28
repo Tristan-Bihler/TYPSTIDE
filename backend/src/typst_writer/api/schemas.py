@@ -222,6 +222,13 @@ class CheckerStatusMessage(BaseModel):
     status: CheckerStatus
 
 
+class CompleterStatusMessage(BaseModel):
+    """Autocomplete (Tinymist) state: not installed, installing (with progress), ready."""
+
+    type: Literal["completer_status"] = "completer_status"
+    status: CheckerStatus
+
+
 # --- REST: spelling and grammar ------------------------------------------------------
 
 

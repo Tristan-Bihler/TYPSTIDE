@@ -141,3 +141,29 @@ class GrammarView(BaseModel):
 
 
 DictionaryWord = Annotated[str, Field(min_length=1, max_length=100, pattern=r"^[^\s\x00-\x1f]+$")]
+
+
+# --- Autocomplete (Tinymist) ---------------------------------------------------------
+
+MAX_COMPLETION_ITEMS = 200
+
+
+class CompletionItem(BaseModel):
+    """One completion, ready for the editor. `insert` is plain text, or an LSP snippet
+    (`${1:name}` fields) when `snippet` is true; it replaces [start, end) (UTF-16)."""
+
+    label: str
+    detail: str = ""
+    kind: str  # editor icon: function, variable, constant, keyword, type, module, label, ...
+    insert: str
+    snippet: bool = False
+    start: int
+    end: int
+
+
+class CompletionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    path: str
+    content: str = Field(max_length=2_000_000)
+    offset: int = Field(ge=0)  # UTF-16 offset of the cursor

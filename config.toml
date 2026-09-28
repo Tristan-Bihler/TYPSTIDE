@@ -53,3 +53,20 @@ windows-x64 = "24819298d9fd0130a4375030bcc6a7ada83d06ced453f524331de688904323ec"
 linux-x64 = "1e16df6c578dc76ff97d644445d126ba6fba5c2e8e174178ab86372652fd7612"
 mac-aarch64 = "2255eadb7be3b58b93d17efcd6fb10809e40e2b28289fdb1af966a874dac13e4"
 mac-x64 = "90cf632a89604172b8170701bd04745dc73de4ac48d2eb4ced879bed532eaa4f"
+
+[tinymist]
+# Tinymist (autocomplete for Typst code, labels and citations). Downloaded once on request
+# (Settings → Autocomplete, or `python scripts/install_tinymist.py`) into the app's cache
+# folder as a single program, only kept when its SHA-256 matches the value below.
+# The release publishes no checksums; these were computed from the release files.
+version = "0.15.8"
+url = "https://github.com/Myriad-Dreamin/tinymist/releases/download/v{version}/tinymist-{platform}"
+startup_timeout_seconds = 30
+request_timeout_seconds = 10
+
+[tinymist.sha256]
+linux-x64 = "781fcd7ccfa099d886f0a227def422595979febe77cbaf4b42f7c66cb746be1d"
+linux-arm64 = "0cb1896364ff6efaefd18b73c40276f00515d2388cb6746a8e5c14a940f9aae3"
+win32-x64 = "7098ea4c056b56ea5d865996b9d048e3a956b72ba22c31789a0422ee4634fe10"
+darwin-arm64 = "e736c3d045a588648561ab8419f9bbce4841636a0080c0ce6fa77c557c8d47c9"
+darwin-x64 = "c84ad141a790954b9038d7bdb0ab2383a614009552abc0fb8fe68489884ab9ac"

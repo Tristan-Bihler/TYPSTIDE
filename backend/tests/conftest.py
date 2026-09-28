@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 from typst_writer.config import CONFIG_ENV_VAR, load_config
 from typst_writer.infra.app_dirs import HOME_ENV_VAR
+from typst_writer.infra.tinymist_install import TINYMIST_ENV_VAR
 from typst_writer.main import create_app
 
 from helpers import write_config
@@ -19,6 +20,7 @@ def isolated_app_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Keep state and caches of every test out of the real user directories."""
     home = tmp_path / "app-home"
     monkeypatch.setenv(HOME_ENV_VAR, str(home))
+    monkeypatch.delenv(TINYMIST_ENV_VAR, raising=False)  # tests opt in to the fake
     return home
 
 

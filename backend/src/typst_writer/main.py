@@ -21,6 +21,7 @@ from typst_writer.infra.app_dirs import cache_dir, config_dir
 from typst_writer.infra.state_store import StateStore
 from typst_writer.ports.compiler import CompileFailedError
 from typst_writer.services.compile import CompileService
+from typst_writer.services.completion import CompletionService
 from typst_writer.services.grammar import GrammarService
 from typst_writer.services.local_check import LocalAI
 from typst_writer.services.review import ReviewService
@@ -78,6 +79,8 @@ def create_app(config: AppConfig) -> FastAPI:
         config, settings, lambda: str(workspace.guard.root) if workspace.info() else None
     )
     grammar.subscribe(hub.checker_status)
+    completion = CompletionService(config, workspace)
+    completion.subscribe(hub.completer_status)
     ollama = OllamaProvider(config.ollama)
     services = Services(
         config=config,
@@ -92,6 +95,7 @@ def create_app(config: AppConfig) -> FastAPI:
         ),
         settings=settings,
         grammar=grammar,
+        completion=completion,
         local_ai=LocalAI(ollama, settings, config.ollama.max_paragraph_chars),
         hub=hub,
     )
@@ -101,6 +105,7 @@ def create_app(config: AppConfig) -> FastAPI:
         await grammar.startup()  # starts LTeX+ in the background if installed
         yield
         await grammar.shutdown()
+        await completion.shutdown()
         await ollama.close()
 
     app = FastAPI(

@@ -21,6 +21,7 @@ from typst_writer.api.schemas import (
     ClientMessage,
     CompileState,
     CompileStatus,
+    CompleterStatusMessage,
     CursorMoved,
     DocChanged,
     DocClosed,
@@ -277,6 +278,15 @@ class Hub:
         if status.state == "ready":
             self.recheck_all()
 
+    def completer_status(self, status: CheckerStatus) -> None:
+        """Called by CompletionService whenever installing Tinymist makes progress."""
+        for session in list(self.sessions):
+            task = asyncio.create_task(
+                self._send_quietly(session, CompleterStatusMessage(status=status))
+            )
+            self._sends.add(task)
+            task.add_done_callback(self._sends.discard)
+
     def recheck_all(self) -> None:
         """Language, dictionary or checker changed: check every open file again."""
         for session in list(self.sessions):
@@ -317,6 +327,7 @@ async def live(ws: WebSocket) -> None:
     try:
         await session.send(WorkspaceChanged(workspace=services.workspace.info(), reopened=True))
         await session.send(CheckerStatusMessage(status=services.grammar.status()))
+        await session.send(CompleterStatusMessage(status=services.completion.status()))
         session.request_compile()
         while True:
             raw = await ws.receive_text()
