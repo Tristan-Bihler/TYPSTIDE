@@ -20,6 +20,7 @@ from typst_writer.adapters.change_schema import CHANGE_SCHEMA, ChangePayload
 from typst_writer.domain.errors import AIFailedError, AIUnavailableError
 from typst_writer.domain.models import Language, ReviewMode, ReviewRequest
 from typst_writer.domain.review import ProposedChange
+from typst_writer.infra.processes import NO_WINDOW
 from typst_writer.ports.ai import AIStatus, ParagraphCheckRequest, ReviewDraft
 
 REVIEW_SCHEMA = CHANGE_SCHEMA
@@ -108,6 +109,7 @@ class ClaudeCliProvider:
             stderr=asyncio.subprocess.PIPE,
             cwd=cwd,
             env=_child_env(),
+            creationflags=NO_WINDOW,
         )
         try:
             out, err = await asyncio.wait_for(process.communicate(stdin.encode("utf-8")), timeout_s)

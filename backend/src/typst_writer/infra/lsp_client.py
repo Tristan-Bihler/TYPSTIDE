@@ -14,6 +14,8 @@ from collections.abc import Awaitable, Callable, Mapping
 from pathlib import Path
 from typing import Any
 
+from typst_writer.infra.processes import NO_WINDOW
+
 log = logging.getLogger(__name__)
 
 MAX_HEADER_LINES = 16
@@ -111,6 +113,7 @@ class LspClient:
                 stderr=asyncio.subprocess.PIPE,
                 cwd=self._cwd,
                 env=self._env,
+                creationflags=NO_WINDOW,
             )
         except OSError as exc:
             raise LspError(f"could not start the language server: {exc}") from exc
