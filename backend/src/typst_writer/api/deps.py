@@ -10,6 +10,7 @@ from typst_writer.services.compile import CompileService
 from typst_writer.services.grammar import GrammarService
 from typst_writer.services.local_check import LocalAI
 from typst_writer.services.review import ReviewService
+from typst_writer.services.settings import SettingsService
 from typst_writer.services.snippets import SnippetService
 from typst_writer.services.workspace import WorkspaceService
 
@@ -24,6 +25,7 @@ class Services:
     compile: CompileService
     snippets: SnippetService
     review: ReviewService
+    settings: SettingsService
     grammar: GrammarService
     local_ai: LocalAI
     hub: "Hub"

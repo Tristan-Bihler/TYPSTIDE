@@ -2,11 +2,26 @@
 
 from pathlib import Path
 
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, Field, ValidationError
+
+MAX_OPEN_TABS = 50
+
+
+class OpenTab(BaseModel):
+    path: str
+    cursor: int = Field(default=0, ge=0)  # UTF-16 offset
+
+
+class OpenTabs(BaseModel):
+    """The editor tabs of a workspace, restored when it is opened again."""
+
+    tabs: list[OpenTab] = Field(default_factory=list, max_length=MAX_OPEN_TABS)
+    active: str | None = None
 
 
 class WorkspaceState(BaseModel):
     main: str | None = None
+    open_tabs: OpenTabs = OpenTabs()
 
 
 class AppState(BaseModel):

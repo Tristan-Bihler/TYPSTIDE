@@ -1,11 +1,11 @@
-"""Local settings in <config dir>/settings.json, restored on start: the AI slots and the
-spelling/grammar language and dictionary."""
+"""Local settings in <config dir>/settings.json, restored on start: the AI slots, the
+spelling/grammar language and dictionary, and look and editor behaviour."""
 
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-from typst_writer.domain.models import AISettings, GrammarSettings
+from typst_writer.domain.models import AISettings, GrammarSettings, UiSettings
 
 
 class StoredSettings(BaseModel):
@@ -13,6 +13,7 @@ class StoredSettings(BaseModel):
 
     ai: AISettings = AISettings()
     grammar: GrammarSettings = GrammarSettings()
+    ui: UiSettings = UiSettings()
 
 
 class SettingsService:
@@ -45,6 +46,13 @@ class SettingsService:
 
     def save_grammar(self, settings: GrammarSettings) -> GrammarSettings:
         self._write(self.load().model_copy(update={"grammar": settings}))
+        return settings
+
+    def ui(self) -> UiSettings:
+        return self.load().ui
+
+    def save_ui(self, settings: UiSettings) -> UiSettings:
+        self._write(self.load().model_copy(update={"ui": settings}))
         return settings
 
     def _write(self, stored: StoredSettings) -> None:

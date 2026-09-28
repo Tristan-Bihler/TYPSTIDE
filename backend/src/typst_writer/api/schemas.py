@@ -167,6 +167,14 @@ class SuggestionsMessage(BaseModel):
     suggestions: list[Suggestion]
 
 
+class WordCount(BaseModel):
+    """Prose words of the main document (main file + included chapters) and per file."""
+
+    type: Literal["word_count"] = "word_count"
+    total: int
+    files: dict[str, int]
+
+
 class LocalCheckStatus(BaseModel):
     """How many paragraphs the local AI still has to check (0 = idle)."""
 

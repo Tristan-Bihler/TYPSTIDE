@@ -16,7 +16,7 @@ from typst_writer.domain.errors import (
     PathOutsideWorkspaceError,
 )
 from typst_writer.infra.paths import WorkspaceGuard, validate_name, validate_rename
-from typst_writer.infra.state_store import StateStore, WorkspaceState
+from typst_writer.infra.state_store import OpenTabs, StateStore, WorkspaceState
 
 TEXT_EXTENSIONS = {".typ", ".bib", ".yml", ".yaml", ".csv", ".txt", ".toml", ".json", ".md"}
 MAX_TEXT_BYTES = 5_000_000
@@ -131,9 +131,37 @@ class WorkspaceService:
             raise InvalidNameError("Only an existing .typ file can be the main file.")
         self._main = rel
         state = self._store.load()
-        state.workspaces[str(self.guard.root)] = WorkspaceState(main=rel)
+        key = str(self.guard.root)
+        current = state.workspaces.get(key, WorkspaceState())
+        state.workspaces[key] = current.model_copy(update={"main": rel})
         self._store.save(state)
         return self._info()
+
+    # --- open tabs ---------------------------------------------------------------
+
+    def open_tabs(self) -> OpenTabs:
+        """The saved tabs of this workspace, without files that are gone meanwhile."""
+        state = self._store.load().workspaces.get(str(self.guard.root), WorkspaceState())
+        tabs = [t for t in state.open_tabs.tabs if self._is_text_file(t.path)]
+        paths = {t.path for t in tabs}
+        active = state.open_tabs.active if state.open_tabs.active in paths else None
+        return OpenTabs(tabs=tabs, active=active)
+
+    def save_open_tabs(self, tabs: OpenTabs) -> None:
+        for tab in tabs.tabs:
+            self.guard.resolve(tab.path)  # only paths inside the workspace are remembered
+        state = self._store.load()
+        key = str(self.guard.root)
+        current = state.workspaces.get(key, WorkspaceState())
+        state.workspaces[key] = current.model_copy(update={"open_tabs": tabs})
+        self._store.save(state)
+
+    def _is_text_file(self, rel: str) -> bool:
+        try:
+            self._text_file(rel)
+        except (PathOutsideWorkspaceError, EntryNotFoundError, NotATextFileError):
+            return False
+        return True
 
     # --- tree --------------------------------------------------------------------
 

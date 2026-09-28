@@ -104,6 +104,20 @@ class AISettings(BaseModel):
     claude_model: str | None = None
 
 
+# --- Look and editor behaviour --------------------------------------------------------
+
+Theme = Literal["system", "light", "dark"]
+
+
+class UiSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    theme: Theme = "system"
+    autosave: bool = True
+    autosave_delay_ms: int = Field(default=2000, ge=500, le=60_000)
+    preview_follows_cursor: bool = True
+
+
 # --- Spelling and grammar (rule checks) ----------------------------------------------
 
 MAX_DICTIONARY_WORDS = 5000

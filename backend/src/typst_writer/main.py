@@ -88,6 +88,7 @@ def create_app(config: AppConfig) -> FastAPI:
             settings,
             config.limits.max_ai_text_chars,
         ),
+        settings=settings,
         grammar=grammar,
         local_ai=LocalAI(ollama, settings, config.ollama.max_paragraph_chars),
         hub=hub,

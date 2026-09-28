@@ -27,8 +27,15 @@ from typst_writer.api.schemas import (
     SetMainRequest,
 )
 from typst_writer.domain.errors import AIFailedError, NoMainFileError
-from typst_writer.domain.models import AISettings, ReviewRequest, ReviewResult, Snippet
+from typst_writer.domain.models import (
+    AISettings,
+    ReviewRequest,
+    ReviewResult,
+    Snippet,
+    UiSettings,
+)
 from typst_writer.infra.paths import WorkspaceGuard
+from typst_writer.infra.state_store import OpenTabs
 from typst_writer.services.grammar import GrammarOverview
 from typst_writer.services.references import WorkspaceIndex, build_index
 from typst_writer.services.review import AIOverview
@@ -55,6 +62,18 @@ async def open_workspace(body: OpenWorkspaceRequest, s: ServicesDep) -> Workspac
     info = s.workspace.open(body.path)
     await s.hub.workspace_changed(reopened=True)
     return info
+
+
+@router.get("/workspace/tabs")
+async def get_open_tabs(s: ServicesDep) -> OpenTabs:
+    """The editor tabs to restore for the open folder."""
+    return s.workspace.open_tabs()
+
+
+@router.put("/workspace/tabs")
+async def save_open_tabs(body: OpenTabs, s: ServicesDep) -> OpenTabs:
+    s.workspace.save_open_tabs(body)
+    return body
 
 
 @router.get("/workspace/browse")
@@ -143,6 +162,19 @@ async def render_snippet(snippet_id: str, body: RenderRequest, s: ServicesDep) -
 async def references(body: OverlaysRequest, s: ServicesDep) -> WorkspaceIndex:
     """Labels, citation keys and images for the insert dialogs."""
     return _index(s.workspace.guard, body.overlays)
+
+
+# --- look and editor behaviour -------------------------------------------------------
+
+
+@router.get("/settings/ui")
+async def get_ui_settings(s: ServicesDep) -> UiSettings:
+    return s.settings.ui()
+
+
+@router.put("/settings/ui")
+async def put_ui_settings(body: UiSettings, s: ServicesDep) -> UiSettings:
+    return s.settings.save_ui(body)
 
 
 # --- spelling and grammar (LTeX+) ---------------------------------------------------

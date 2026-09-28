@@ -30,10 +30,12 @@ from typst_writer.api.schemas import (
     ProblemsMessage,
     SuggestionsMessage,
     TypingPaused,
+    WordCount,
     WorkspaceChanged,
 )
 from typst_writer.domain.errors import NoMainFileError, WorkspaceError
 from typst_writer.domain.models import Suggestion
+from typst_writer.domain.word_count import document_counts
 from typst_writer.ports.rule_checker import CheckerStatus
 from typst_writer.services.check_orchestrator import CheckOrchestrator
 from typst_writer.services.local_check import LocalCheck
@@ -138,6 +140,11 @@ class Session:
                 duration_ms=round(result.duration_ms, 1),
             )
         )
+        overlays = dict(self.overlays)
+        counts = await asyncio.to_thread(
+            document_counts, info.main, lambda path: overlays.get(path) or self._read_saved(path)
+        )
+        await self.send(WordCount(total=sum(counts.values()), files=counts))
 
     async def _nothing_to_show(self, state: CompileState) -> None:
         self._page_hashes = []  # the client clears its preview; resend every page next time
