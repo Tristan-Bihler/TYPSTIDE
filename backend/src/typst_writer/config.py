@@ -33,6 +33,8 @@ class TimingConfig(_Section):
 class LimitsConfig(_Section):
     max_ws_message_bytes: int = 2_000_000
     max_ai_text_chars: int = 20_000
+    max_check_chars: int = 200_000
+    max_lsp_message_bytes: int = 20_000_000
 
 
 class ClaudeConfig(_Section):
@@ -44,6 +46,14 @@ class OllamaConfig(_Section):
     base_url: str = "http://127.0.0.1:11434"
 
 
+class LtexConfig(_Section):
+    version: str = "18.7.0"
+    url: str = ""
+    sha256: dict[str, str] = {}  # platform key (e.g. "windows-x64") -> archive checksum
+    startup_timeout_seconds: int = 180
+    check_timeout_seconds: int = 30
+
+
 class AppConfig(_Section):
     server: ServerConfig = ServerConfig()
     typst: TypstConfig = TypstConfig()
@@ -51,6 +61,7 @@ class AppConfig(_Section):
     limits: LimitsConfig = LimitsConfig()
     claude: ClaudeConfig = ClaudeConfig()
     ollama: OllamaConfig = OllamaConfig()
+    ltex: LtexConfig = LtexConfig()
 
 
 def load_config(path: Path | None = None) -> AppConfig:

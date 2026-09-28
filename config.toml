@@ -1,5 +1,5 @@
-# typst-writer configuration. No secrets here: the Anthropic API key comes from
-# the ANTHROPIC_API_KEY environment variable or the OS keyring only.
+# typst-writer configuration. No secrets here: Claude runs through the logged-in
+# `claude` command, and no API keys are used.
 
 [server]
 # The backend always binds to 127.0.0.1; only the ports are configurable.
@@ -17,6 +17,10 @@ typing_paused_ms = 1500
 [limits]
 max_ws_message_bytes = 2_000_000
 max_ai_text_chars = 20_000
+# Longer files are not grammar-checked (LTeX+ gets slow on very long documents).
+max_check_chars = 200_000
+# Largest single message accepted from a language server (LTeX+).
+max_lsp_message_bytes = 20_000_000
 
 [claude]
 # Models offered in the AI selector's Claude slot. Claude runs through the locally installed
@@ -28,3 +32,18 @@ timeout_seconds = 120
 
 [ollama]
 base_url = "http://127.0.0.1:11434"
+
+[ltex]
+# LTeX+ (spelling and grammar, offline). Downloaded once on request ("Install" in the status
+# bar or `python scripts/install_ltex.py`) into the app's cache folder; each archive bundles
+# its own Java, and is only unpacked when its SHA-256 matches the value below.
+version = "18.7.0"
+url = "https://github.com/ltex-plus/ltex-ls-plus/releases/download/{version}/ltex-ls-plus-{version}-{platform}.{extension}"
+startup_timeout_seconds = 180
+check_timeout_seconds = 30
+
+[ltex.sha256]
+windows-x64 = "24819298d9fd0130a4375030bcc6a7ada83d06ced453f524331de688904323ec"
+linux-x64 = "1e16df6c578dc76ff97d644445d126ba6fba5c2e8e174178ab86372652fd7612"
+mac-aarch64 = "2255eadb7be3b58b93d17efcd6fb10809e40e2b28289fdb1af966a874dac13e4"
+mac-x64 = "90cf632a89604172b8170701bd04745dc73de4ac48d2eb4ced879bed532eaa4f"
