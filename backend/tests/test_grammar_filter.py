@@ -52,6 +52,7 @@ def test_block_starts() -> None:
         '#figure(\n  image("/b.svg"),\n  caption: [Beschriftung hier],\n) <fig:a>\n'
         "Danach kommt Text.\n"
         "Wie @fig:a. Neuer Satz, und noch\n"
+        "(siehe @fig:a). Zweiter Satz.\n"
         "siehe @knuth.\nNächste Zeile.\n"
         "$ x $\n\nAbsatz nach Formel."
     )
@@ -62,6 +63,7 @@ def test_block_starts() -> None:
         "Beschriftung",
         "Danach",
         "Neuer",
+        "Zweiter",
         "Nächste",
         "Absatz",
     ]
@@ -103,6 +105,16 @@ def test_false_alarms_found_with_ltex_are_dropped() -> None:
     assert is_false_alarm(_finding(text, "Der", "DE_CASE"), prose)
     assert is_false_alarm(_finding(text, "Die", "DE_CASE"), prose)
     assert is_false_alarm(_finding(text, "Die", "DE_CASE", occurrence=1), prose)
+
+
+def test_unpaired_bracket_is_a_false_alarm_only_when_its_partner_follows_a_reference() -> None:
+    glued = "Das zeigt die Messung (siehe @fig:a). Weiter."
+    prose = scan(glued)
+    start = glued.index("(")
+    assert is_false_alarm(Finding(start, start + 1, "DE_UNPAIRED_BRACKETS"), prose)
+    missing = "Das zeigt die Messung (siehe Abbildung. Weiter."
+    start = missing.index("(")
+    assert not is_false_alarm(Finding(start, start + 1, "DE_UNPAIRED_BRACKETS"), scan(missing))
 
 
 def test_real_errors_next_to_markup_are_kept() -> None:

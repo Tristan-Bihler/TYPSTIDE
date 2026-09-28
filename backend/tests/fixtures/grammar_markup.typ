@@ -70,6 +70,7 @@ Auch `inline_code()` bleibt unberührt.
 
 = Ergebnisse <sec:ergebnisse>
 
-Die Ergebnisse bestätigen die Erwartung.
+Die Ergebnisse bestätigen die Erwartung (siehe @tab:werte). Die Abweichung ist klein, wie
+schon in @sec:einleitung vermutet.
 
 #bibliography("/quellen.bib")

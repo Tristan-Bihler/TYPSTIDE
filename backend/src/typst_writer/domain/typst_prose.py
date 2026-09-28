@@ -20,8 +20,12 @@ _CODE_LINE_KEYWORDS = {"let", "set", "show", "import", "include", "if", "for", "
 
 @dataclass(frozen=True)
 class ProseMap:
+    text: str
     markup: bytearray  # 1 where the character is markup, not prose
     block_starts: frozenset[int]
+    # 1 for punctuation glued to a reference ("@fig:a)." -> ")."): LTeX+ takes it as part
+    # of the reference and never sees it.
+    swallowed: bytearray
 
     def is_markup(self, start: int, end: int) -> bool:
         """Whether any character in [start, end) is markup."""
@@ -31,7 +35,7 @@ class ProseMap:
 def scan(text: str) -> ProseMap:
     scanner = _Scanner(text)
     scanner.markup_mode(0, closing=False)
-    return ProseMap(scanner.marks, frozenset(scanner.starts))
+    return ProseMap(text, scanner.marks, frozenset(scanner.starts), scanner.swallowed)
 
 
 class _Scanner:
@@ -39,6 +43,7 @@ class _Scanner:
         self.text = text
         self.n = len(text)
         self.marks = bytearray(self.n)
+        self.swallowed = bytearray(self.n)
         self.starts: set[int] = set()
 
     def mark(self, start: int, end: int) -> None:
@@ -102,10 +107,14 @@ class _Scanner:
                 prose_on_line = True  # a reference reads as a word in the sentence
                 pending = False
                 i = ref.end()
-                if i < n and text[i] in ".!?":
-                    # LTeX+ swallows the period with the reference, so it misses that a
-                    # new sentence starts after it.
-                    j = i + 1
+                glued = i
+                while glued < n and not text[glued].isspace():
+                    glued += 1
+                self.swallowed[i:glued] = b"\x01" * (glued - i)
+                if any(ch in ".!?" for ch in text[i:glued]):
+                    # LTeX+ swallows the period with the reference ("@a." or "@a)."), so
+                    # it misses that a new sentence starts after it.
+                    j = glued
                     while j < n and text[j] in " \t":
                         j += 1
                     if j < n and text[j] != "\n":
