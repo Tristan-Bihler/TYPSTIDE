@@ -63,6 +63,12 @@ def app_url(tmp_path_factory: pytest.TempPathFactory, ollama_log: Path) -> Itera
     run = f"runpy.run_path({str(fake_ltex)!r}, run_name='__main__')"
     java.write_text(f"#!{sys.executable}\nimport runpy\n{run}\n", encoding="utf-8")
     java.chmod(0o755)
+    # A fake Tinymist (autocomplete).
+    tinymist = fake_bin / "tinymist"
+    fake_tinymist = ROOT / "backend" / "tests" / "fakes" / "tinymist.py"
+    run = f"runpy.run_path({str(fake_tinymist)!r}, run_name='__main__')"
+    tinymist.write_text(f"#!{sys.executable}\nimport runpy\n{run}\n", encoding="utf-8")
+    tinymist.chmod(0o755)
     # A fake Ollama (the local AI) on a free port, and a config pointing at it.
     ollama_port = _free_port()
     fake_ollama = ROOT / "backend" / "tests" / "fakes" / "ollama.py"
@@ -79,6 +85,7 @@ def app_url(tmp_path_factory: pytest.TempPathFactory, ollama_log: Path) -> Itera
         "TYPST_WRITER_CONFIG": str(config),
         "TYPST_WRITER_HOME": str(tmp_path_factory.mktemp("app-home")),
         "TYPST_WRITER_LTEX_DIR": str(ltex),
+        "TYPST_WRITER_TINYMIST": str(tinymist),
         "PATH": f"{fake_bin}{os.pathsep}{os.environ.get('PATH', '')}",
     }
     backend = subprocess.Popen(

@@ -574,6 +574,58 @@ select {
   color: var(--ink);
 }
 
+/* autocomplete (editor/completion.ts): source font for names, quiet signature on the right */
+
+.editor-surface .cm-tooltip-autocomplete {
+  border-radius: 6px;
+  box-shadow: var(--page-shadow);
+  overflow: hidden;
+}
+
+.editor-surface .cm-tooltip-autocomplete > ul {
+  max-height: 16em;
+  font-family: var(--font-source);
+  font-size: 12.5px;
+}
+
+.editor-surface .cm-tooltip-autocomplete > ul > li {
+  padding: 3px 10px 3px 6px;
+  line-height: 1.5;
+}
+
+.editor-surface .cm-tooltip-autocomplete > ul > li[aria-selected] {
+  background: var(--accent-wash);
+  color: var(--ink);
+}
+
+.editor-surface .cm-completionMatchedText {
+  text-decoration: none;
+  color: var(--accent);
+}
+
+.editor-surface .cm-completionDetail {
+  margin-left: 1.2em;
+  color: var(--pencil);
+  font-family: var(--font-ui);
+  font-style: normal;
+  display: inline-block;
+  max-width: 26em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+.editor-surface .cm-completionIcon {
+  width: 1.2em;
+  color: var(--pencil);
+  opacity: 1;
+}
+
+.editor-surface .cm-completionIcon-label::after {
+  content: "@";
+}
+
 .editor-surface .cm-lintRange-error {
   background-image: none;
   text-decoration: underline wavy var(--error);

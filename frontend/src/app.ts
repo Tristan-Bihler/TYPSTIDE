@@ -85,6 +85,10 @@ export class App implements Actions {
       onContextMenu: (event) => this.editorMenu(event),
       onIgnore: (path, suggestion) => this.ignore(path, suggestion),
       onAddWord: (suggestion) => void this.addWord(suggestion),
+      onComplete: (path, content, offset, signal) =>
+        this.store.get().completer?.state === "ready" && path.endsWith(".typ")
+          ? api.complete(path, content, offset, signal)
+          : Promise.resolve([]),
     });
     this.editor.show(null);
     mountInsertToolbar(insertHost, {
@@ -208,6 +212,9 @@ export class App implements Actions {
       case "checker_status":
         this.store.set({ checker: message.status });
         break;
+      case "completer_status":
+        this.store.set({ completer: message.status });
+        break;
       case "word_count":
         this.store.set({ wordCount: message });
         break;
@@ -312,6 +319,20 @@ export class App implements Actions {
       this.store.set({ checker: (await api.installGrammar()).status });
     } catch (error) {
       await showMessage("Could not install the spelling check", errorText(error));
+    }
+  }
+
+  async installCompletion(): Promise<void> {
+    const ok = await confirmAction(
+      "Install autocomplete?",
+      "Autocomplete uses Tinymist. It is downloaded once (about 70 MB) and then works offline.",
+      "Download and install",
+    );
+    if (!ok) return;
+    try {
+      this.store.set({ completer: await api.installCompletion() });
+    } catch (error) {
+      await showMessage("Could not install autocomplete", errorText(error));
     }
   }
 

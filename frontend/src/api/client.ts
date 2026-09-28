@@ -3,6 +3,8 @@
 import type {
   AIOverview,
   AISettings,
+  CheckerStatus,
+  CompletionItem,
   DirListing,
   EntryPath,
   FileContent,
@@ -124,6 +126,10 @@ export const api = {
   saveUiSettings: (settings: UiSettings): Promise<UiSettings> => request("PUT", "/api/settings/ui", settings),
   openTabs: (): Promise<OpenTabs> => request("GET", "/api/workspace/tabs"),
   saveOpenTabs: (tabs: OpenTabs): Promise<OpenTabs> => request("PUT", "/api/workspace/tabs", tabs),
+  completionStatus: (): Promise<CheckerStatus> => request("GET", "/api/completion"),
+  installCompletion: (): Promise<CheckerStatus> => request("POST", "/api/completion/install"),
+  complete: (path: string, content: string, offset: number, signal: AbortSignal): Promise<CompletionItem[]> =>
+    request("POST", "/api/complete", { path, content, offset }, signal),
   grammar: (): Promise<GrammarOverview> => request("GET", "/api/grammar"),
   installGrammar: (): Promise<GrammarOverview> => request("POST", "/api/grammar/install"),
   setGrammarLanguage: (language: GrammarSettings["language"]): Promise<GrammarOverview> =>

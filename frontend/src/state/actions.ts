@@ -20,6 +20,7 @@ export interface Actions {
   jumpTo(problem: Problem): Promise<void>;
   setLanguage(language: Language): void;
   installGrammar(): Promise<void>;
+  installCompletion(): Promise<void>;
   openSettings(): void;
 }
 

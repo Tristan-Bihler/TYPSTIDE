@@ -77,6 +77,7 @@ export type ServerMessage =
   | { type: "workspace_changed"; workspace: WorkspaceInfo | null; reopened: boolean }
   | SuggestionsMessage
   | { type: "checker_status"; status: CheckerStatus }
+  | { type: "completer_status"; status: CheckerStatus }
   | { type: "local_check_status"; pending: number }
   | { type: "jump"; path: string; offset: number } // answer to preview_click (UTF-16 offset)
   | { type: "preview_position"; path: string; offset: number; page: number; y: number }
@@ -86,6 +87,18 @@ export interface WordCount {
   type: "word_count";
   total: number; // main file + every included chapter
   files: Record<string, number>;
+}
+
+// --- autocomplete (Tinymist) --------------------------------------------------------
+
+export interface CompletionItem {
+  label: string;
+  detail: string;
+  kind: string; // editor icon: function, variable, constant, keyword, type, label, ...
+  insert: string; // plain text, or an LSP snippet when `snippet`
+  snippet: boolean;
+  start: number; // UTF-16 range it replaces
+  end: number;
 }
 
 // --- look and editor behaviour ---------------------------------------------------------

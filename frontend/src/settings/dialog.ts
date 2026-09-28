@@ -2,7 +2,7 @@
 // tools. Changes apply and are saved at once; "Done" only closes the dialog.
 
 import { api } from "../api/client";
-import type { Theme, UiSettings } from "../api/types";
+import type { CheckerStatus, Theme, UiSettings } from "../api/types";
 import type { Actions } from "../state/actions";
 import type { AppState, Store } from "../state/store";
 import { showMessage } from "../ui/dialog";
@@ -37,6 +37,33 @@ function checkbox(checked: boolean): HTMLInputElement {
   const box = el("input", { type: "checkbox", class: "setting-check" });
   box.checked = checked;
   return box;
+}
+
+const TOOL_STATES: Record<CheckerStatus["state"], string> = {
+  not_installed: "Not installed",
+  installing: "Installing…",
+  starting: "Starting…",
+  ready: "Ready (offline)",
+  failed: "Off",
+};
+
+/** Status of an optional language tool, with its Install button while not installed. */
+function toolControl(
+  store: Store<AppState>,
+  status: (state: AppState) => CheckerStatus | null,
+  installLabel: string,
+  onInstall: () => void,
+): { control: HTMLElement; unsubscribe: () => void } {
+  const text = el("span", { class: "setting-status" });
+  const install = el("button", { type: "button", class: "button" }, installLabel);
+  install.addEventListener("click", onInstall);
+  const unsubscribe = store.subscribe((state) => {
+    const current = status(state);
+    text.textContent = current === null ? "Checking…" : current.state === "installing" ? current.reason : TOOL_STATES[current.state];
+    text.title = current?.reason ?? "";
+    install.hidden = current?.state !== "not_installed";
+  });
+  return { control: el("div", { class: "setting-control" }, text, install), unsubscribe };
 }
 
 export interface SettingsContext {
@@ -82,26 +109,9 @@ export function openSettings(ctx: SettingsContext): void {
   const follow = checkbox(ui.preview_follows_cursor);
   follow.addEventListener("change", () => save({ preview_follows_cursor: follow.checked }));
 
-  // Spelling check status (install from here too).
-  const spelling = el("span", { class: "setting-status" });
-  const install = el("button", { type: "button", class: "button" }, "Install (about 320 MB)");
-  install.addEventListener("click", () => void ctx.actions.installGrammar());
-  const spellingControl = el("div", { class: "setting-control" }, spelling, install);
-  const unsubscribe = store.subscribe((state) => {
-    const status = state.checker;
-    spelling.textContent =
-      status === null
-        ? "Checking…"
-        : {
-            not_installed: "Not installed",
-            installing: "Installing…",
-            starting: "Starting…",
-            ready: "Ready (offline)",
-            failed: "Off",
-          }[status.state];
-    spelling.title = status?.reason ?? "";
-    install.hidden = status?.state !== "not_installed";
-  });
+  // Optional language tools (install from here too).
+  const spelling = toolControl(store, (s) => s.checker, "Install (about 320 MB)", () => void ctx.actions.installGrammar());
+  const completion = toolControl(store, (s) => s.completer, "Install (about 70 MB)", () => void ctx.actions.installCompletion());
 
   const done = el("button", { type: "button", class: "button primary" }, "Done");
   const dialog = el(
@@ -118,14 +128,19 @@ export function openSettings(ctx: SettingsContext): void {
         row("Save after", delay),
         row("Preview follows the cursor", follow, "Scrolls the preview to the paragraph you are editing."),
       ),
-      section("Spelling and grammar", row("LTeX+", spellingControl, "Checks German and English on this computer.")),
+      section("Spelling and grammar", row("LTeX+", spelling.control, "Checks German and English on this computer.")),
+      section(
+        "Autocomplete",
+        row("Tinymist", completion.control, "Suggests functions after #, and labels and sources after @. Ctrl+Space asks anywhere."),
+      ),
       ...(ctx.sections ?? []).map((build) => build()),
     ),
     el("div", { class: "dialog-buttons" }, done),
   );
   done.addEventListener("click", () => dialog.close());
   dialog.addEventListener("close", () => {
-    unsubscribe();
+    spelling.unsubscribe();
+    completion.unsubscribe();
     dialog.remove();
   });
   document.body.append(dialog);

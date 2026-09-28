@@ -19,6 +19,7 @@ export interface AppState {
   problems: Problem[]; // from the last compile
   findings: Record<string, Problem[]>; // spelling/grammar per open file
   checker: CheckerStatus | null;
+  completer: CheckerStatus | null; // autocomplete (Tinymist)
   localPending: number; // paragraphs the local AI still has to check
   ui: UiSettings;
   wordCount: WordCount | null;
@@ -38,6 +39,7 @@ export const initialState: AppState = {
   problems: [],
   findings: {},
   checker: null,
+  completer: null,
   localPending: 0,
   ui: { theme: "system", autosave: true, autosave_delay_ms: 2000, preview_follows_cursor: true },
   wordCount: null,

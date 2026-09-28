@@ -1,6 +1,7 @@
 // Editor pane: tab bar plus one CodeMirror view whose state is swapped per open file,
 // so every file keeps its own undo history and selection.
 
+import { autocompletion } from "@codemirror/autocomplete";
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { bracketMatching, indentOnInput, syntaxHighlighting } from "@codemirror/language";
 import { lintGutter, setDiagnostics, type Diagnostic } from "@codemirror/lint";
@@ -16,11 +17,12 @@ import {
   type KeyBinding,
 } from "@codemirror/view";
 
-import type { Problem, Suggestion } from "../api/types";
+import type { CompletionItem, Problem, Suggestion } from "../api/types";
 import { setSuggestions, suggestionLayer } from "../suggestions/layer";
 import { isDirty, type AppState, type Store } from "../state/store";
 import { basename, el } from "../ui/dom";
 import { iconNode, icons } from "../ui/icons";
+import { typstCompletions } from "./completion";
 import { typstHighlight, typstLanguage } from "./typst";
 
 export interface EditorCallbacks {
@@ -36,6 +38,8 @@ export interface EditorCallbacks {
   onIgnore(path: string, suggestion: Suggestion): void;
   /** "Add to dictionary" on a spelling finding. */
   onAddWord(suggestion: Suggestion): void;
+  /** Completions at `offset` in the active file (empty while autocomplete is off). */
+  onComplete(path: string, content: string, offset: number, signal: AbortSignal): Promise<CompletionItem[]>;
 }
 
 /** Labels of CodeMirror's find & replace panel, in the app's sentence case. */
@@ -114,6 +118,16 @@ export class EditorPane {
         search({ top: true }),
         EditorState.phrases.of(SEARCH_PHRASES),
         highlightSelectionMatches(),
+        autocompletion({
+          override: [
+            typstCompletions((content, offset, signal) =>
+              this.activePath === null
+                ? Promise.resolve([])
+                : this.callbacks.onComplete(this.activePath, content, offset, signal),
+            ),
+          ],
+          icons: true,
+        }),
         suggestionLayer({
           ignore: (suggestion) => {
             if (this.activePath !== null) this.callbacks.onIgnore(this.activePath, suggestion);

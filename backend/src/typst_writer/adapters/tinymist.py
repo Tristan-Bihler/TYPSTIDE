@@ -111,7 +111,7 @@ def lsp_position(text: str, index: int) -> dict[str, int]:
 
 
 def _one_line(text: str) -> str:
-    first = text.strip().split("\n", 1)[0]
+    first = text.strip().removeprefix(": ").split("\n", 1)[0]  # labels: ": <caption>"
     return first if len(first) <= MAX_DETAIL else first[: MAX_DETAIL - 1] + "…"
 
 

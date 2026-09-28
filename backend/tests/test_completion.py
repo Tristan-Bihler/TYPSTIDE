@@ -68,7 +68,7 @@ def test_items_are_validated_mapped_and_deduplicated() -> None:
             },
             {"kind": 3},  # no label: dropped
             {"label": "far", "textEdit": _edit(0, 0, 1, "far")},  # does not touch the cursor
-            {"label": "plain", "insertText": "plain()"},
+            {"label": "plain", "insertText": "plain()", "detail": ": A caption"},
             {"label": "table", "textEdit": _edit(0, 4, 6, "table")},  # "fi" typed: not shown
         ]
     }
@@ -79,6 +79,7 @@ def test_items_are_validated_mapped_and_deduplicated() -> None:
     assert figure.detail == "(content) => figure"
     assert fill.detail == "Line one."
     assert (plain.insert, plain.start, plain.end, plain.snippet) == ("plain()", 6, 6, False)
+    assert plain.detail == "A caption"
 
 
 def test_unexpected_answers_give_no_items() -> None:
