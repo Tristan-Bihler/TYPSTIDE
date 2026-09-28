@@ -94,6 +94,21 @@ def test_click_to_source_and_back(project: Path) -> None:
     assert y == pytest.approx(chapter_par.marker.y)
 
 
+def test_cursor_after_an_include_follows_reading_order(project: Path) -> None:
+    mapping = _map(project)
+    last_of_chapter = mapping.pairs[5]
+    after_include = MAIN.index("#include") + 3
+    page, y = mapping.to_preview("main.typ", after_include) or (0, 0.0)
+    assert page == last_of_chapter.marker.page
+    assert y == pytest.approx(last_of_chapter.marker.y)
+    # Before the include: the paragraph above it in main.typ.
+    found = mapping.to_preview("main.typ", MAIN.index("#include") - 1)
+    assert found is not None and found[1] >= mapping.pairs[1].marker.y
+    assert found[0] == mapping.pairs[1].marker.page
+    # Before anything with a marker (the set rules): nothing to show.
+    assert mapping.to_preview("main.typ", 3) is None
+
+
 def test_click_on_a_page_without_markers_uses_the_last_one_before(project: Path) -> None:
     mapping = _map(project)
     assert mapping.to_source(99, 10) == ("main.typ", MAIN.index("Wiederholter"))

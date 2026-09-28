@@ -102,9 +102,22 @@ def file_blocks(path: str, source: str) -> list[tuple[int, Block | str]]:
     return sorted(items, key=lambda item: item[0])
 
 
-def document_blocks(main: str, read: Callable[[str], str | None]) -> list[Block]:
-    """Every block of the document in reading order (includes expanded in place)."""
+@dataclass(frozen=True)
+class Anchor:
+    """A place in a file and how many blocks of the document come up to there."""
+
+    path: str
+    offset: int
+    blocks_before: int
+
+
+def document_blocks(
+    main: str, read: Callable[[str], str | None]
+) -> tuple[list[Block], list[Anchor]]:
+    """Every block of the document in reading order (includes expanded in place), and
+    anchors after every block and every `#include` (to place a cursor in reading order)."""
     blocks: list[Block] = []
+    anchors: list[Anchor] = []
     visiting: set[str] = set()
 
     def visit(path: str) -> None:
@@ -114,15 +127,16 @@ def document_blocks(main: str, read: Callable[[str], str | None]) -> list[Block]
         if source is None:
             return
         visiting.add(path)
-        for _, item in file_blocks(path, source):
+        for offset, item in file_blocks(path, source):
             if isinstance(item, Block):
                 blocks.append(item)
             else:
                 visit(item)
+            anchors.append(Anchor(path, offset, len(blocks)))
         visiting.discard(path)
 
     visit(main)
-    return blocks
+    return blocks, anchors
 
 
 def _matches(marker: tuple[str, ...], block: tuple[str, ...]) -> bool:
@@ -137,6 +151,7 @@ def _matches(marker: tuple[str, ...], block: tuple[str, ...]) -> bool:
 class Pair:
     marker: Marker
     block: Block
+    seq: int  # the block's position in the document
 
 
 def align(markers: list[Marker], blocks: list[Block]) -> list[Pair]:
@@ -150,15 +165,18 @@ def align(markers: list[Marker], blocks: list[Block]) -> list[Pair]:
             continue
         for j in range(next_block, len(blocks)):
             if _matches(marker_words, blocks[j].words):
-                pairs.append(Pair(marker, blocks[j]))
+                pairs.append(Pair(marker, blocks[j], j))
                 next_block = j + 1
                 break
     return pairs
 
 
 class SourceMap:
-    def __init__(self, pairs: list[Pair], read: Callable[[str], str | None]) -> None:
+    def __init__(
+        self, pairs: list[Pair], anchors: list[Anchor], read: Callable[[str], str | None]
+    ) -> None:
         self.pairs = pairs
+        self._anchors = anchors
         self._read = read
 
     def _next_on_page(self, i: int) -> Marker | None:
@@ -189,10 +207,13 @@ class SourceMap:
         return block.path, index
 
     def to_preview(self, path: str, index: int) -> tuple[int, float] | None:
-        """(page, y pt) of the Python index `index` in `path`."""
-        candidates = [
-            i for i, p in enumerate(self.pairs) if p.block.path == path and p.block.start <= index
-        ]
+        """(page, y pt) of the Python index `index` in `path`: the last paragraph or heading
+        at or before it in reading order (after an `#include`, the included file's last)."""
+        before = [a for a in self._anchors if a.path == path and a.offset <= index]
+        if not before:
+            return None
+        seen = before[-1].blocks_before
+        candidates = [i for i, p in enumerate(self.pairs) if p.seq < seen]
         if not candidates:
             return None
         i = candidates[-1]
@@ -200,7 +221,8 @@ class SourceMap:
         block = pair.block
         following = self._next_on_page(i)
         y = pair.marker.y
-        if following is not None and block.end > block.start and index <= block.end:
+        inside = block.path == path and block.start <= index <= block.end
+        if following is not None and block.end > block.start and inside:
             fraction = (index - block.start) / (block.end - block.start)
             y += fraction * (following.y - pair.marker.y)
         return pair.marker.page, y
@@ -208,4 +230,5 @@ class SourceMap:
 
 def build(raw_markers: str, main: str, read: Callable[[str], str | None]) -> SourceMap:
     markers = parse_markers(raw_markers)
-    return SourceMap(align(markers, document_blocks(main, read)), read)
+    blocks, anchors = document_blocks(main, read)
+    return SourceMap(align(markers, blocks), anchors, read)
