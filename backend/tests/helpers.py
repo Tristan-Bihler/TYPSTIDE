@@ -1,6 +1,8 @@
 """Shared test helpers."""
 
+import sys
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 from starlette.testclient import WebSocketTestSession
@@ -42,3 +44,27 @@ def receive_compile_until(
         if done(cycle):
             return cycle
     raise AssertionError(f"no matching compile cycle within {limit} cycles")
+
+
+FAKE_LTEX = Path(__file__).parent / "fakes" / "ltex.py"
+
+
+def make_fake_ltex_install(home: Path) -> Path:
+    """An LTeX+ folder whose `java` starts the fake language server (it ignores the Java
+    arguments), so the app's real start-up path is exercised without Java."""
+    (home / "lib").mkdir(parents=True)
+    java = home / "jdk-21" / "bin" / "java"
+    java.parent.mkdir(parents=True)
+    run = f"runpy.run_path({str(FAKE_LTEX)!r}, run_name='__main__')"
+    java.write_text(f"#!{sys.executable}\nimport runpy\n{run}\n", encoding="utf-8")
+    java.chmod(0o755)
+    return home
+
+
+def receive_suggestions(ws: WebSocketTestSession, path: str, limit: int = 40) -> dict[str, Any]:
+    """The next `suggestions` message for `path`."""
+    for _ in range(limit):
+        message: dict[str, Any] = ws.receive_json()
+        if message["type"] == "suggestions" and message["path"] == path:
+            return message
+    raise AssertionError(f"no suggestions for {path} within {limit} messages")

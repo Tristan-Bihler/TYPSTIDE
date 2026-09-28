@@ -1,8 +1,9 @@
-"""Live preview over WebSocket.
+"""Live preview and rule checks over WebSocket.
 
 Each connection holds the client's unsaved buffers ("overlays"). Any change schedules a
 compile of the workspace's main file; compiles never overlap and a burst of changes
-collapses into one more compile. Only pages whose SVG changed are sent again.
+collapses into one more compile. Only pages whose SVG changed are sent again. Open files
+are also spell- and grammar-checked (CheckOrchestrator) and the findings sent back.
 """
 
 import asyncio
@@ -15,17 +16,23 @@ from pydantic import BaseModel, TypeAdapter, ValidationError
 
 from typst_writer.api.deps import Services
 from typst_writer.api.schemas import (
+    CheckerStatusMessage,
     ClientMessage,
     CompileState,
     CompileStatus,
     DocChanged,
     DocClosed,
+    DocOpened,
     PageUpdate,
     PreviewPages,
     ProblemsMessage,
+    SuggestionsMessage,
     WorkspaceChanged,
 )
 from typst_writer.domain.errors import NoMainFileError, WorkspaceError
+from typst_writer.domain.models import Suggestion
+from typst_writer.ports.rule_checker import CheckerStatus
+from typst_writer.services.check_orchestrator import CheckOrchestrator
 from typst_writer.services.workspace import WorkspaceService
 
 log = logging.getLogger(__name__)
@@ -42,10 +49,22 @@ class Session:
         self._page_hashes: list[str] = []
         self._wake = asyncio.Event()
         self._send_lock = asyncio.Lock()
+        self.checks = CheckOrchestrator(
+            services.grammar, self._send_suggestions, services.config.limits.max_check_chars
+        )
 
     async def send(self, message: BaseModel) -> None:
         async with self._send_lock:
             await self._ws.send_text(message.model_dump_json())
+
+    async def _send_suggestions(
+        self, path: str, version: int | None, suggestions: list[Suggestion]
+    ) -> None:
+        message = SuggestionsMessage(
+            path=path, version=version, source="rule", suggestions=suggestions
+        )
+        with contextlib.suppress(WebSocketDisconnect, RuntimeError):
+            await self.send(message)
 
     def request_compile(self) -> None:
         self._wake.set()
@@ -53,6 +72,7 @@ class Session:
     def reset(self) -> None:
         self.overlays.clear()
         self._page_hashes = []
+        self.checks.clear()
 
     async def compile_loop(self) -> None:
         while True:
@@ -103,16 +123,27 @@ class Session:
         self._page_hashes = hashes
         return updates
 
+    def _in_workspace(self, path: str) -> bool:
+        try:
+            self._services.workspace.guard.resolve(path)
+        except WorkspaceError:
+            return False  # outside the open folder, or no folder open
+        return True
+
     def handle(self, message: ClientMessage) -> None:
         match message:
-            case DocChanged(path=path, content=content):
-                try:
-                    self._services.workspace.guard.resolve(path)
-                except WorkspaceError:
-                    return  # ignore buffers outside the open folder (or no folder open)
+            case DocOpened(path=path, content=content, version=version):
+                if self._in_workspace(path):
+                    self.checks.update(path, content, version)
+                return  # opening a file does not change the preview
+            case DocChanged(path=path, content=content, version=version):
+                if not self._in_workspace(path):
+                    return
                 self.overlays[path] = content
+                self.checks.update(path, content, version)
             case DocClosed(path=path):
                 self.overlays.pop(path, None)
+                self.checks.close(path)
             case _:
                 pass  # refresh
         self.request_compile()
@@ -124,6 +155,28 @@ class Hub:
     def __init__(self, workspace: WorkspaceService) -> None:
         self._workspace = workspace
         self.sessions: set[Session] = set()
+        self._sends: set[asyncio.Task[None]] = set()
+
+    def checker_status(self, status: CheckerStatus) -> None:
+        """Called by GrammarService (synchronously) whenever the checker's state changes."""
+        for session in list(self.sessions):
+            task = asyncio.create_task(
+                self._send_quietly(session, CheckerStatusMessage(status=status))
+            )
+            self._sends.add(task)
+            task.add_done_callback(self._sends.discard)
+        if status.state == "ready":
+            self.recheck_all()
+
+    def recheck_all(self) -> None:
+        """Language, dictionary or checker changed: check every open file again."""
+        for session in list(self.sessions):
+            session.checks.recheck_all()
+
+    @staticmethod
+    async def _send_quietly(session: Session, message: BaseModel) -> None:
+        with contextlib.suppress(WebSocketDisconnect, RuntimeError):
+            await session.send(message)
 
     async def workspace_changed(self, reopened: bool = False) -> None:
         message = WorkspaceChanged(workspace=self._workspace.info(), reopened=reopened)
@@ -148,6 +201,7 @@ async def live(ws: WebSocket) -> None:
     worker = asyncio.create_task(session.compile_loop())
     try:
         await session.send(WorkspaceChanged(workspace=services.workspace.info(), reopened=True))
+        await session.send(CheckerStatusMessage(status=services.grammar.status()))
         session.request_compile()
         while True:
             raw = await ws.receive_text()
@@ -159,6 +213,7 @@ async def live(ws: WebSocket) -> None:
         pass
     finally:
         services.hub.sessions.discard(session)
+        await session.checks.stop()
         worker.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await worker

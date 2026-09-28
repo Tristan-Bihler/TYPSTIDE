@@ -1,6 +1,6 @@
 """Core data model shared by services, adapters and the API."""
 
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -102,3 +102,19 @@ class AISettings(BaseModel):
 
     local_model: str | None = None
     claude_model: str | None = None
+
+
+# --- Spelling and grammar (rule checks) ----------------------------------------------
+
+MAX_DICTIONARY_WORDS = 5000
+
+
+class GrammarSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    language: Language = "de-DE"
+    # Words accepted by the spell check ("Add to dictionary"), per language.
+    dictionary: dict[Language, list[str]] = {}
+
+
+DictionaryWord = Annotated[str, Field(min_length=1, max_length=100, pattern=r"^[^\s\x00-\x1f]+$")]

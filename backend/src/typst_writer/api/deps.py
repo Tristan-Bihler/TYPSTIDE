@@ -7,6 +7,7 @@ from fastapi import Depends, Request
 
 from typst_writer.config import AppConfig
 from typst_writer.services.compile import CompileService
+from typst_writer.services.grammar import GrammarService
 from typst_writer.services.review import ReviewService
 from typst_writer.services.snippets import SnippetService
 from typst_writer.services.workspace import WorkspaceService
@@ -22,6 +23,7 @@ class Services:
     compile: CompileService
     snippets: SnippetService
     review: ReviewService
+    grammar: GrammarService
     hub: "Hub"
 
 

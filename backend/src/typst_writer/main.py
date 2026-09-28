@@ -1,5 +1,8 @@
 """FastAPI app factory and server entry point."""
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,6 +20,7 @@ from typst_writer.infra.app_dirs import cache_dir, config_dir
 from typst_writer.infra.state_store import StateStore
 from typst_writer.ports.compiler import CompileFailedError
 from typst_writer.services.compile import CompileService
+from typst_writer.services.grammar import GrammarService
 from typst_writer.services.review import ReviewService
 from typst_writer.services.settings import SettingsService
 from typst_writer.services.snippets import SnippetService
@@ -38,6 +42,7 @@ _STATUS: dict[type[errors.WorkspaceError], tuple[int, str]] = {
     errors.AIUnavailableError: (409, "ai_unavailable"),
     errors.AIFailedError: (502, "ai_failed"),
     errors.TextTooLongError: (413, "too_long"),
+    errors.CheckerUnavailableError: (409, "checker_unavailable"),
 }
 
 
@@ -65,6 +70,10 @@ def create_app(config: AppConfig) -> FastAPI:
 
     workspace = WorkspaceService(StateStore(config_dir() / "state.json"))
     workspace.restore_last()
+    settings = SettingsService(config_dir() / "settings.json")
+    hub = websocket.Hub(workspace)
+    grammar = GrammarService(config, settings)
+    grammar.subscribe(hub.checker_status)
     services = Services(
         config=config,
         workspace=workspace,
@@ -72,13 +81,22 @@ def create_app(config: AppConfig) -> FastAPI:
         snippets=SnippetService(SNIPPETS_PATH),
         review=ReviewService(
             ClaudeCliProvider(config.claude.models, config.claude.timeout_seconds),
-            SettingsService(config_dir() / "settings.json"),
+            settings,
             config.limits.max_ai_text_chars,
         ),
-        hub=websocket.Hub(workspace),
+        grammar=grammar,
+        hub=hub,
     )
 
-    app = FastAPI(title="typst-writer", docs_url=None, redoc_url=None, openapi_url=None)
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+        await grammar.startup()  # starts LTeX+ in the background if installed
+        yield
+        await grammar.shutdown()
+
+    app = FastAPI(
+        title="typst-writer", docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan
+    )
     app.state.services = services
     app.state.allowed_origins = {f"http://{HOST}:{config.server.frontend_port}"}
     app.add_middleware(

@@ -2,9 +2,16 @@
 
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
-from typst_writer.domain.models import Problem
+from typst_writer.domain.models import (
+    DictionaryWord,
+    Language,
+    Problem,
+    Suggestion,
+    SuggestionSource,
+)
+from typst_writer.ports.rule_checker import CheckerStatus
 from typst_writer.services.workspace import WorkspaceInfo
 
 
@@ -81,6 +88,16 @@ class DocChanged(BaseModel):
     type: Literal["doc_changed"]
     path: str
     content: str
+    version: int | None = None  # the client's edit counter, echoed in `suggestions`
+
+
+class DocOpened(BaseModel):
+    """A file was opened in the editor: check it (the preview is not affected)."""
+
+    type: Literal["doc_opened"]
+    path: str
+    content: str
+    version: int | None = None
 
 
 class DocClosed(BaseModel):
@@ -92,7 +109,7 @@ class Refresh(BaseModel):
     type: Literal["refresh"]
 
 
-ClientMessage = Annotated[DocChanged | DocClosed | Refresh, Field(discriminator="type")]
+ClientMessage = Annotated[DocChanged | DocOpened | DocClosed | Refresh, Field(discriminator="type")]
 
 
 # --- WebSocket: server -> client ---------------------------------------------------------
@@ -127,3 +144,34 @@ class WorkspaceChanged(BaseModel):
     type: Literal["workspace_changed"] = "workspace_changed"
     workspace: WorkspaceInfo | None
     reopened: bool  # True when a different folder was opened: drop all open buffers
+
+
+class SuggestionsMessage(BaseModel):
+    """Findings for one file, replacing earlier ones from the same source."""
+
+    type: Literal["suggestions"] = "suggestions"
+    path: str
+    version: int | None
+    source: SuggestionSource
+    suggestions: list[Suggestion]
+
+
+class CheckerStatusMessage(BaseModel):
+    type: Literal["checker_status"] = "checker_status"
+    status: CheckerStatus
+
+
+# --- REST: spelling and grammar ------------------------------------------------------
+
+
+class GrammarLanguageRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    language: Language
+
+
+class DictionaryWordRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    language: Language
+    word: DictionaryWord

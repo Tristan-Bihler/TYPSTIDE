@@ -16,5 +16,8 @@ class NoneRuleChecker:
     ) -> list[Suggestion]:
         return []
 
+    async def forget(self, path: str) -> None:
+        return None
+
     async def close(self) -> None:
         return None

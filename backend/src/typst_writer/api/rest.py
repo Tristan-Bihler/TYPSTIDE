@@ -12,9 +12,11 @@ from typst_writer.adapters.typst_py import typst_version
 from typst_writer.api.deps import ServicesDep
 from typst_writer.api.schemas import (
     CreateEntryRequest,
+    DictionaryWordRequest,
     EntryPath,
     ExportRequest,
     FileContent,
+    GrammarLanguageRequest,
     HealthResponse,
     OpenWorkspaceRequest,
     OverlaysRequest,
@@ -27,6 +29,7 @@ from typst_writer.api.schemas import (
 from typst_writer.domain.errors import AIFailedError, NoMainFileError
 from typst_writer.domain.models import AISettings, ReviewRequest, ReviewResult, Snippet
 from typst_writer.infra.paths import WorkspaceGuard
+from typst_writer.services.grammar import GrammarOverview
 from typst_writer.services.references import WorkspaceIndex, build_index
 from typst_writer.services.review import AIOverview
 from typst_writer.services.workspace import DirListing, Tree, WorkspaceInfo
@@ -140,6 +143,34 @@ async def render_snippet(snippet_id: str, body: RenderRequest, s: ServicesDep) -
 async def references(body: OverlaysRequest, s: ServicesDep) -> WorkspaceIndex:
     """Labels, citation keys and images for the insert dialogs."""
     return _index(s.workspace.guard, body.overlays)
+
+
+# --- spelling and grammar (LTeX+) ---------------------------------------------------
+
+
+@router.get("/grammar")
+async def grammar_status(s: ServicesDep) -> GrammarOverview:
+    return s.grammar.overview()
+
+
+@router.post("/grammar/install")
+async def grammar_install(s: ServicesDep) -> GrammarOverview:
+    """Download LTeX+ in the background (only when the user clicks Install)."""
+    return s.grammar.install()
+
+
+@router.put("/grammar/settings")
+async def grammar_settings(body: GrammarLanguageRequest, s: ServicesDep) -> GrammarOverview:
+    overview = s.grammar.set_language(body.language)
+    s.hub.recheck_all()
+    return overview
+
+
+@router.post("/grammar/dictionary")
+async def grammar_add_word(body: DictionaryWordRequest, s: ServicesDep) -> GrammarOverview:
+    overview = s.grammar.add_word(body.language, body.word)
+    s.hub.recheck_all()
+    return overview
 
 
 # --- AI -----------------------------------------------------------------------------

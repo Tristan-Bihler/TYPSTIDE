@@ -121,6 +121,7 @@ class LtexChecker:
         self._settings: dict[str, object] = {}
         self._waiting: dict[str, asyncio.Future[_Published]] = {}
         self._warm = False
+        self._running: set[asyncio.Task[list[Suggestion]]] = set()
 
     def status(self) -> CheckerStatus:
         return CheckerStatus(state=self._state, reason=self._reason)
@@ -215,6 +216,21 @@ class LtexChecker:
     # --- checking --------------------------------------------------------------------
 
     async def check(
+        self, path: str, source: str, language: Language, dictionary: list[str]
+    ) -> list[Suggestion]:
+        # Shielded: a check abandoned halfway would leave LTeX+'s late answer to be taken
+        # for the next check's. The caller may stop waiting; the exchange still finishes.
+        task = asyncio.create_task(self._check(path, source, language, dictionary))
+        self._running.add(task)
+        task.add_done_callback(self._finished)
+        return await asyncio.shield(task)
+
+    def _finished(self, task: asyncio.Task[list[Suggestion]]) -> None:
+        self._running.discard(task)
+        if not task.cancelled():
+            task.exception()  # retrieved: nobody may be waiting any more
+
+    async def _check(
         self, path: str, source: str, language: Language, dictionary: list[str]
     ) -> list[Suggestion]:
         async with self._check_lock:
