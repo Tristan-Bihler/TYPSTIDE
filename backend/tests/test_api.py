@@ -124,6 +124,27 @@ def test_delete_symlink_removes_link_not_target(opened: TestClient, workspace: P
     assert (workspace / "main.typ").is_file()
 
 
+@pytest.mark.skipif(os.name == "nt", reason="symlinks need extra privileges on Windows")
+@pytest.mark.parametrize("overwrite", [False, True])
+def test_create_never_writes_through_a_link_leading_outside(
+    opened: TestClient, workspace: Path, overwrite: bool
+) -> None:
+    outside = workspace.parent / "planted.typ"  # does not exist: the link is broken
+    (workspace / "chapters" / "trap.typ").symlink_to(outside)
+    body = {"parent": "chapters", "name": "trap.typ", "overwrite": overwrite}
+    response = opened.post("/api/workspace/file", json=body)
+    assert response.status_code == 403
+    assert not outside.exists()
+
+
+@pytest.mark.skipif(os.name == "nt", reason="symlinks need extra privileges on Windows")
+def test_broken_link_inside_counts_as_existing(opened: TestClient, workspace: Path) -> None:
+    (workspace / "chapters" / "dangling.typ").symlink_to(workspace / "chapters" / "gone.typ")
+    body = {"parent": "chapters", "name": "dangling.typ"}
+    assert opened.post("/api/workspace/file", json=body).json()["code"] == "exists"
+    assert not (workspace / "chapters" / "gone.typ").exists()
+
+
 @pytest.mark.parametrize("path", ["../secret.txt", "..\\secret.txt", "/etc/passwd", "C:x.txt"])
 def test_path_traversal_is_rejected_everywhere(
     opened: TestClient, workspace: Path, path: str

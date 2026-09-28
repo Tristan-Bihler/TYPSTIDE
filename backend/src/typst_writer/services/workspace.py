@@ -209,8 +209,12 @@ class WorkspaceService:
 
     def create_file(self, parent: str, name: str, overwrite: bool = False) -> str:
         target = self._folder(parent) / validate_name(name, "file")
-        if target.exists() and not (overwrite and target.is_file()):
-            raise EntryExistsError(self.guard.relative(target))
+        # is_symlink(): a broken link does not "exist", but writing to it would create
+        # its target, possibly outside the folder. relative() refuses links leading out.
+        if target.is_symlink() or target.exists():
+            existing = self.guard.relative(target)
+            if not (overwrite and target.is_file()):
+                raise EntryExistsError(existing)
         target.write_text("", encoding="utf-8")
         return self.guard.relative(target)
 
