@@ -5,7 +5,9 @@ import type {
   EntryPath,
   FileContent,
   Problem,
+  Snippet,
   Tree,
+  WorkspaceIndex,
   WorkspaceInfo,
 } from "./types";
 
@@ -95,6 +97,15 @@ export const api = {
   rename: (path: string, newName: string, overwrite = false): Promise<EntryPath> =>
     request("POST", "/api/workspace/rename", { path, new_name: newName, overwrite }),
   delete: (path: string): Promise<EntryPath> => request("DELETE", `/api/workspace/entry${q(path)}`),
+  snippets: (): Promise<Snippet[]> => request("GET", "/api/snippets"),
+  renderSnippet: (
+    id: string,
+    params: Record<string, unknown>,
+    overlays: Record<string, string>,
+  ): Promise<{ code: string }> =>
+    request("POST", `/api/snippets/${encodeURIComponent(id)}/render`, { params, overlays }),
+  references: (overlays: Record<string, string>): Promise<WorkspaceIndex> =>
+    request("POST", "/api/workspace/references", { overlays }),
 
   async exportPdf(overlays: Record<string, string>): Promise<{ blob: Blob; filename: string }> {
     const response = await fetch("/api/export/pdf", {

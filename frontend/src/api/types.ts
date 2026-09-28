@@ -71,3 +71,39 @@ export type ServerMessage =
   | { type: "preview_pages"; pages: PageUpdate[] }
   | { type: "problems"; problems: Problem[] }
   | { type: "workspace_changed"; workspace: WorkspaceInfo | null; reopened: boolean };
+
+// --- insert toolbar ----------------------------------------------------------------
+
+export type SnippetKind = "wrap" | "line_prefix" | "block" | "dialog";
+export type DialogKind = "table" | "figure" | "equation" | "reference" | "bibliography" | "chart";
+
+export interface Snippet {
+  id: string;
+  label: string;
+  group: string;
+  kind: SnippetKind;
+  template: string;
+  placeholder: string;
+  dialog: DialogKind | null;
+  shortcut: string | null;
+  title: string;
+  in_toolbar: boolean;
+  required_packages: string[];
+}
+
+export type TargetKind = "heading" | "figure" | "table" | "equation" | "label" | "citation";
+
+export interface ReferenceTarget {
+  key: string;
+  kind: TargetKind;
+  file: string;
+  line: number;
+  description: string;
+}
+
+export interface WorkspaceIndex {
+  targets: ReferenceTarget[];
+  images: string[];
+  bibliographies: string[];
+  has_bibliography_call: boolean;
+}

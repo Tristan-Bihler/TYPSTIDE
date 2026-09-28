@@ -4,7 +4,7 @@
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { bracketMatching, indentOnInput, syntaxHighlighting } from "@codemirror/language";
 import { lintGutter, setDiagnostics, type Diagnostic } from "@codemirror/lint";
-import { EditorSelection, EditorState } from "@codemirror/state";
+import { Compartment, EditorSelection, EditorState, type TransactionSpec } from "@codemirror/state";
 import {
   drawSelection,
   EditorView,
@@ -12,6 +12,7 @@ import {
   highlightActiveLineGutter,
   keymap,
   lineNumbers,
+  type KeyBinding,
 } from "@codemirror/view";
 
 import type { Problem } from "../api/types";
@@ -40,6 +41,9 @@ export class EditorPane {
   private readonly tabs: HTMLElement;
   private readonly empty: HTMLElement;
   private activePath: string | null = null;
+  /** Snippet shortcuts (Mod-b, …); loaded after the editor exists, so reconfigurable. */
+  private readonly shortcuts = new Compartment();
+  private shortcutBindings: KeyBinding[] = [];
 
   constructor(
     host: HTMLElement,
@@ -78,6 +82,7 @@ export class EditorPane {
         lintGutter(),
         EditorView.lineWrapping,
         EditorState.tabSize.of(2),
+        this.shortcuts.of(keymap.of(this.shortcutBindings)),
         keymap.of([
           { key: "Mod-s", preventDefault: true, run: () => (this.callbacks.onSave(), true) },
           ...defaultKeymap,
@@ -96,6 +101,29 @@ export class EditorPane {
         EditorView.contentAttributes.of({ "aria-label": "Document source", spellcheck: "false" }),
       ],
     });
+  }
+
+  /** Replace the snippet shortcuts in every open file. */
+  setShortcuts(bindings: KeyBinding[]): void {
+    this.shortcutBindings = bindings;
+    const effects = this.shortcuts.reconfigure(keymap.of(bindings));
+    for (const [path, state] of this.states) {
+      if (path !== this.activePath) this.states.set(path, state.update({ effects }).state);
+    }
+    this.view.dispatch({ effects });
+  }
+
+  /** The active file's state, or null when no file is open. */
+  activeState(): EditorState | null {
+    return this.activePath === null ? null : this.view.state;
+  }
+
+  /** Apply a change to the active file as one undo step and focus the editor. */
+  apply(spec: TransactionSpec): boolean {
+    if (this.activePath === null) return false;
+    this.view.dispatch(spec);
+    this.view.focus();
+    return true;
   }
 
   open(path: string, content: string): void {
