@@ -31,7 +31,13 @@ models = ["sonnet", "opus", "haiku"]
 timeout_seconds = 120
 
 [ollama]
+# The local AI slot (live check while writing). Must point at this computer: the app refuses
+# to start with any other host, so text sent to the "local" model never leaves the machine.
 base_url = "http://127.0.0.1:11434"
+# A paragraph check is abandoned after this many seconds (the first one loads the model).
+timeout_seconds = 60
+# Longer paragraphs are not sent to the local model.
+max_paragraph_chars = 4000
 
 [ltex]
 # LTeX+ (spelling and grammar, offline). Downloaded once on request ("Install" in the status

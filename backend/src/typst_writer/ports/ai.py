@@ -2,7 +2,7 @@ from typing import Protocol
 
 from pydantic import BaseModel
 
-from typst_writer.domain.models import Language, ReviewRequest, Suggestion
+from typst_writer.domain.models import Language, ReviewRequest
 from typst_writer.domain.review import ProposedChange
 
 
@@ -13,9 +13,10 @@ class AIStatus(BaseModel):
 
 
 class ParagraphCheckRequest(BaseModel):
-    """Live check of one paragraph (Phase 5)."""
+    """Live check of one paragraph by the local AI."""
 
     paragraph: str
+    context_before: str = ""  # the previous paragraph, for context only
     language: Language = "de-DE"
 
 
@@ -31,7 +32,10 @@ class AIProvider(Protocol):
 
     async def status(self, refresh: bool = False) -> AIStatus: ...
 
-    async def check_paragraph(self, req: ParagraphCheckRequest, model: str) -> list[Suggestion]: ...
+    async def check_paragraph(self, req: ParagraphCheckRequest, model: str) -> list[ProposedChange]:
+        """Proposed changes relative to the paragraph (validated by the caller).
+        Raises AIUnavailableError or AIFailedError."""
+        ...
 
     async def review_selection(self, req: ReviewRequest, model: str) -> ReviewDraft:
         """Raises AIUnavailableError or AIFailedError."""

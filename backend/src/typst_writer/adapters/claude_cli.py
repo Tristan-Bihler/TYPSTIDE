@@ -14,37 +14,15 @@ import tempfile
 import time
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ValidationError
 
+from typst_writer.adapters.change_schema import CHANGE_SCHEMA, ChangePayload
 from typst_writer.domain.errors import AIFailedError, AIUnavailableError
-from typst_writer.domain.models import Language, ReviewMode, ReviewRequest, Suggestion
+from typst_writer.domain.models import Language, ReviewMode, ReviewRequest
 from typst_writer.domain.review import ProposedChange
 from typst_writer.ports.ai import AIStatus, ParagraphCheckRequest, ReviewDraft
 
-CATEGORIES = ["grammar", "spelling", "punctuation", "style", "clarity", "brevity"]
-
-REVIEW_SCHEMA: dict[str, Any] = {
-    "type": "object",
-    "properties": {
-        "explanation": {"type": "string"},
-        "changes": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "original": {"type": "string"},
-                    "replacement": {"type": "string"},
-                    "reason": {"type": "string"},
-                    "category": {"type": "string", "enum": CATEGORIES},
-                },
-                "required": ["original", "replacement", "reason", "category"],
-                "additionalProperties": False,
-            },
-        },
-    },
-    "required": ["explanation", "changes"],
-    "additionalProperties": False,
-}
+REVIEW_SCHEMA = CHANGE_SCHEMA
 
 _LANGUAGE_NAMES: dict[Language, str] = {"de-DE": "German", "en-US": "English"}
 
@@ -100,13 +78,6 @@ class _Envelope(BaseModel):
     is_error: bool
     result: str = ""
     structured_output: dict[str, Any] | None = None
-
-
-class _Payload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    explanation: str = Field("", max_length=5_000)
-    changes: list[ProposedChange] = Field(default_factory=list, max_length=200)
 
 
 class _AuthStatus(BaseModel):
@@ -178,7 +149,7 @@ class ClaudeCliProvider:
             )
         return AIStatus(available=True, reason="", models=list(self._models))
 
-    async def check_paragraph(self, req: ParagraphCheckRequest, model: str) -> list[Suggestion]:
+    async def check_paragraph(self, req: ParagraphCheckRequest, model: str) -> list[ProposedChange]:
         return []  # the Claude slot only drives the on-demand review (no hidden fallback)
 
     async def review_selection(self, req: ReviewRequest, model: str) -> ReviewDraft:
@@ -226,7 +197,7 @@ def _parse(code: int, out: str, err: str) -> ReviewDraft:
         detail = envelope.result.strip()[:300] or envelope.subtype
         raise AIFailedError(f"Claude could not complete the review: {detail}")
     try:
-        payload = _Payload.model_validate(envelope.structured_output)
+        payload = ChangePayload.model_validate(envelope.structured_output)
     except ValidationError as e:
         raise AIFailedError("Claude returned an answer in an unexpected format.") from e
     return ReviewDraft(explanation=payload.explanation, changes=payload.changes)

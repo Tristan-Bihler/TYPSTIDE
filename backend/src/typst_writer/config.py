@@ -3,13 +3,15 @@
 import os
 import tomllib
 from pathlib import Path
+from urllib.parse import urlsplit
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 
 CONFIG_ENV_VAR = "TYPST_WRITER_CONFIG"
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_CONFIG_PATH = REPO_ROOT / "config.toml"
 SNIPPETS_PATH = REPO_ROOT / "snippets.toml"
+LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
 
 
 class _Section(BaseModel):
@@ -44,6 +46,20 @@ class ClaudeConfig(_Section):
 
 class OllamaConfig(_Section):
     base_url: str = "http://127.0.0.1:11434"
+    timeout_seconds: int = 60
+    max_paragraph_chars: int = 4000
+
+    @field_validator("base_url")
+    @classmethod
+    def _local_only(cls, value: str) -> str:
+        """The local AI slot must stay on this computer: text never leaves it."""
+        url = urlsplit(value)
+        if url.scheme not in ("http", "https") or url.hostname not in LOOPBACK_HOSTS:
+            raise ValueError(
+                "[ollama] base_url must point at this computer "
+                "(http://127.0.0.1:11434, localhost or [::1])"
+            )
+        return value.rstrip("/")
 
 
 class LtexConfig(_Section):
