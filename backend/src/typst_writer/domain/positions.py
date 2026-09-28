@@ -14,6 +14,7 @@ class TextPositions:
         self.text = text
         self._line_starts = [0]
         self._line_starts.extend(i + 1 for i, c in enumerate(text) if c == "\n")
+        self._bmp_only = utf16_len(text) == len(text)  # then UTF-16 offset == index
 
     def index(self, line: int, character: int) -> int:
         """Python index of an LSP position (clamped to the text)."""
@@ -34,7 +35,7 @@ class TextPositions:
 
     def utf16_offset(self, index: int) -> int:
         """UTF-16 offset from the document start of a Python index."""
-        return utf16_len(self.text[:index])
+        return index if self._bmp_only else utf16_len(self.text[:index])
 
     def line_column(self, index: int) -> tuple[int, int]:
         """1-based line and column (in characters) of a Python index."""

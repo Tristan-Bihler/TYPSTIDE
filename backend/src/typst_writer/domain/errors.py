@@ -57,3 +57,7 @@ class AIFailedError(WorkspaceError):
 
 class TextTooLongError(WorkspaceError):
     pass
+
+
+class CheckerUnavailableError(WorkspaceError):
+    """Spelling and grammar checks cannot run (LTeX+ not installed, failed to start)."""

@@ -74,6 +74,8 @@ class Suggestion(BaseModel):
     replacement: str
     reason: str
     category: str
+    fixes: list[str] = []  # rule checks: every offered replacement (first = `replacement`)
+    rule: str = ""  # rule checks: the LanguageTool rule id
 
 
 class ReviewRequest(BaseModel):
