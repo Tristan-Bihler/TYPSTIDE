@@ -45,3 +45,11 @@ class UnknownSnippetError(WorkspaceError):
 
 class InvalidSnippetParamsError(WorkspaceError):
     pass
+
+
+class AIUnavailableError(WorkspaceError):
+    """No usable AI for this action (slot is None, command missing, not logged in)."""
+
+
+class AIFailedError(WorkspaceError):
+    """The AI was called but did not return a usable answer."""

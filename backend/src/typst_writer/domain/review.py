@@ -10,6 +10,8 @@ import re
 from collections import Counter
 from dataclasses import dataclass
 
+from pydantic import BaseModel, ConfigDict
+
 from typst_writer.domain.models import Suggestion
 
 # Raw blocks, inline raw, math, code/function calls, references and labels.
@@ -18,8 +20,9 @@ _MARKUP_TOKEN = re.compile(
 )
 
 
-@dataclass(frozen=True)
-class ProposedChange:
+class ProposedChange(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     original: str
     replacement: str
     reason: str

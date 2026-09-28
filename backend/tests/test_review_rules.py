@@ -15,7 +15,7 @@ SELECTION = 'Siehe @tab:werte und $a^2$ in #figure(image("/x.svg")) <fig:x>. Das
 
 
 def change(original: str, replacement: str) -> ProposedChange:
-    return ProposedChange(original, replacement, reason="r", category="style")
+    return ProposedChange(original=original, replacement=replacement, reason="r", category="style")
 
 
 def test_markup_tokens() -> None:

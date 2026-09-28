@@ -80,7 +80,7 @@ class ReviewRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     selection: str = Field(min_length=1)
-    selection_start: int = Field(0, ge=0)  # UTF-16 offset of the selection in the document
+    selection_start: int = Field(default=0, ge=0)  # UTF-16 offset of the selection in the document
     context_before: str = ""
     context_after: str = ""
     glossary: list[str] = []

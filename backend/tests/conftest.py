@@ -1,3 +1,5 @@
+import os
+import sys
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -15,6 +17,27 @@ def isolated_app_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     home = tmp_path / "app-home"
     monkeypatch.setenv(HOME_ENV_VAR, str(home))
     return home
+
+
+FAKE_CLAUDE = Path(__file__).parent / "fakes" / "claude.py"
+
+
+@pytest.fixture(autouse=True)
+def fake_claude(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Put a fake `claude` first on PATH in every test, so no test can reach a real model.
+
+    Returns the log file the fake appends one JSON record per invocation to.
+    """
+    bin_dir = tmp_path / "fake-bin"
+    bin_dir.mkdir()
+    wrapper = bin_dir / "claude"
+    run = f"runpy.run_path({str(FAKE_CLAUDE)!r}, run_name='__main__')"
+    wrapper.write_text(f"#!{sys.executable}\nimport runpy\n{run}\n", encoding="utf-8")
+    wrapper.chmod(0o755)
+    log = tmp_path / "fake-claude.jsonl"
+    monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ.get('PATH', '')}")
+    monkeypatch.setenv("FAKE_CLAUDE_LOG", str(log))
+    return log
 
 
 @pytest.fixture
