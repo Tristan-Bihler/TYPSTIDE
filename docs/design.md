@@ -31,6 +31,7 @@ main document on the right, always.
 | `--error` | `#c4302b` | `#ff7b72` | compile errors |
 | `--warning` | `#a86a12` | `#e3b341` | warnings |
 | `--claude` | `#7a3db8` | `#c79bff` | Claude suggestions (CLAUDE.md: Claude = purple) |
+| `--local-ai` | `#1f6fd1` | `#6cb2ff` | local AI suggestions (CLAUDE.md: local AI = blue), the "checking…" hint |
 | `--spelling` | `#cf2350` | `#ff7a93` | spelling/grammar underlines (CLAUDE.md: rule = red); a raspberry red, so it is not confused with compile errors |
 
 Type: UI `"Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif` at 13 px;
