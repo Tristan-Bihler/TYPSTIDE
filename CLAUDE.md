@@ -62,6 +62,7 @@ Read this file completely before every session. Work phase by phase (see "Phases
 | Frontend | TypeScript, Vite, CodeMirror 6 | Clean web UI, lint/underline support |
 | Desktop window (Phase 7) | pywebview (Edge WebView2 on Windows) | Native app window, same UI code |
 | Tooling | uv, pytest, mypy, ruff, vitest, Playwright | |
+| Windows app (Phase 7) | PyInstaller (one folder, windowed) + Inno Setup installer, built by GitHub Actions on `windows-latest` | User decision: Windows only, an installer, downloaded as the workflow's artifact |
 
 Flask was considered and rejected: it is sync-first, WebSockets need extra plugins, and parallel async work (compile + LSP + AI) is awkward.
 
@@ -423,4 +424,11 @@ Use these skills when they are installed. At the start of a session, check which
   - Editor: `@codemirror/autocomplete`, triggered after `#`, `#name.`, `@` and by Ctrl+Space, aborted on the next edit; LSP snippets converted to CodeMirror snippets (`editor/completion.ts`).
   - Tests: fake Tinymist (`backend/tests/fakes/tinymist.py`, also used by the e2e servers); `test_tinymist_real.py` (marker `tinymist`) runs when Tinymist is installed. E2E: `test_comfort.py`, `test_jump.py`, `test_autocomplete.py`, word list in `test_grammar.py`.
   - Not done: a glossary for the AI prompts (with the later AI work), per-file language, completion inside code blocks without Ctrl+Space.
-- [ ] Phase 7 – Desktop app
+- [x] Phase 7 – Desktop app (**Windows only**, user decision)
+  - **Delivery:** `typst-writer-setup.exe` (Inno Setup, per user, no admin rights, Start-menu entry, optional desktop icon, English/German; the uninstaller keeps settings and downloaded tools). Built by `.github/workflows/windows.yml` on every push; download it from the run's artifacts ("typst-writer-setup"). Locally on Windows: `python scripts/build_windows.py` (needs uv, Node 22, Inno Setup 6). The program is **unsigned**: SmartScreen warns once ("More info" → "Run anyway").
+  - `typst_writer/desktop.py`: uvicorn in a background thread serving the **built frontend** (`create_app(static_dir=…, origin=…)`) on the fixed `[desktop] port = 47813` (fixed so local storage survives restarts); pywebview window (`gui="edgechromium"`, `private_mode=False`, storage in `<config dir>/webview`). One instance only (a second start says "already running"; a foreign program on the port is named). Logs: `<cache dir>/logs/typst-writer.log` (the program has no console).
+  - The page reaches Python only through `DesktopApi`: `pick_folder` (native dialog), `save_pdf` (native Save dialog; data must be a PDF, size-limited, written only where the user chose), `set_unsaved` (switches pywebview's close confirmation). The frontend (`src/desktop/bridge.ts`) falls back to its web dialogs in a browser.
+  - **Security addition:** `POST/PUT/PATCH/DELETE` under `/api` require `X-Typst-Writer: 1` (a custom header forces a CORS preflight, so no web page can trigger actions, e.g. the tool installs). Child processes get `CREATE_NO_WINDOW` on Windows (`infra/processes.py`).
+  - Bundle: `packaging/typst-writer.spec` (config.toml, snippets.toml, frontend/dist, icon; `config.resource_root()` finds them via `sys._MEIPASS`), `packaging/installer.iss`, `packaging/typst-writer.ico`. pywebview is a Windows-only runtime dependency, PyInstaller a Windows-only `build` group.
+  - **Verification:** `typst-writer.exe --self-test [--report file]` (no window, temporary app home) checks health, the served frontend, the header rule, a project in a path with a space and umlaut (tree/read/save), the live preview over the WebSocket, PDF export and the tool statuses (starts a child process). CI runs it on the built and on the silently installed program: **passed on Windows** (first run). Here: `tests/test_desktop.py` (fake `webview` module), `tests/test_desktop_mode.py`, `e2e/test_desktop_mode.py` (built frontend + simulated pywebview bridge).
+  - Not verified here (no Windows desktop in the cloud): the window itself, the native dialogs, the close confirmation, the "already running" message — check on your PC. GitHub warns that the pinned actions (`@v4`/`@v6`) still target Node 20.

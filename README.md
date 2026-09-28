@@ -39,6 +39,22 @@ python scripts/install_ltex.py       # spelling and grammar (LTeX+, about 320 MB
 python scripts/install_tinymist.py   # autocomplete (Tinymist, about 70 MB)
 ```
 
+## Windows app
+
+Every push builds a Windows installer on GitHub Actions (workflow *Windows app*). Open the
+latest run on GitHub, download the artifact **typst-writer-setup**, unzip it and run
+`typst-writer-setup.exe`. It installs for your user only (no administrator rights) and adds
+typst-writer to the Start menu. The installer is not signed, so Windows SmartScreen asks
+once: *More info* → *Run anyway*. The app needs the Microsoft Edge WebView2 runtime, which
+Windows 10 and 11 normally include.
+
+To build it yourself on Windows (needs uv, Node.js 22+ and
+[Inno Setup 6](https://jrsoftware.org/isinfo.php)):
+
+```sh
+python scripts/build_windows.py      # -> dist/typst-writer-setup.exe
+```
+
 ## Check
 
 ```sh
@@ -56,7 +72,8 @@ and free ports 8000/5173, so stop `dev.py` first.
 | `backend/` | FastAPI app (`src/typst_writer/`), tests |
 | `frontend/` | Vite + TypeScript UI (CodeMirror 6) |
 | `e2e/` | Playwright UI tests |
-| `scripts/` | `dev.py` (start), `check.py` (all checks), tool installers |
+| `scripts/` | `dev.py` (start), `check.py` (all checks), tool installers, `build_windows.py` |
+| `packaging/` | Windows app: PyInstaller spec, Inno Setup script, icon |
 | `docs/` | UI sketch, design notes |
 | `config.toml` | Ports, pinned Typst version, timings, limits, Claude model list |
 
