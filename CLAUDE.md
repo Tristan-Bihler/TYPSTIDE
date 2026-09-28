@@ -385,7 +385,12 @@ Use these skills when they are installed. At the start of a session, check which
   - typst-py reports only the **first** compile error (plus all warnings); columns are 0-based characters (adapter converts to 1-based).
   - Security additions: `TrustedHostMiddleware` (DNS rebinding), WebSocket `Origin` check, preview pages rendered as `<img>` SVG blobs (no script/link execution), delete/rename act on symlinks themselves.
   - UI tests: `python scripts/check.py --e2e` (Python Playwright in `e2e/`, needs free ports 8000/5173; in cloud sessions set `PLAYWRIGHT_CHROMIUM_EXECUTABLE=/opt/pw-browsers/chromium-1194/chrome-linux/chrome`). Design tokens and principles: `docs/design.md`.
-- [ ] Phase 2 – Insert toolbar
+- [x] Phase 2 – Insert toolbar (**without Chart**, see next item)
+  - `snippets.toml` (repo root) defines the toolbar: kinds `wrap`, `line_prefix` (toggles, replaces heading/list markers), `block`, `dialog`; snippets sharing a `group` become a dropdown; `shortcut` (Mod-b/Mod-i) and `in_toolbar = false` (bibliography, offered inside the Reference dialog).
+  - Dialog code is generated **only in the backend** (`services/snippets.py`, `POST /api/snippets/{id}/render`); dialogs show a live preview of exactly that code. `POST /api/workspace/references` indexes labels, `.bib` keys, images and whether `#bibliography` is called (unsaved buffers included).
+  - Generated Typst follows the project skill `.claude/skills/typst-syntax/` (verified against 0.15.0; its example project is compiled in the tests). Key rules: escape `\ # $ * _ [ ] @ < > ` ~ /` and a leading `= - + 1.` in user text; image/bibliography paths root-relative (`/bilder/x.png`); labelled block equations use `#math.equation(..., numbering: "(1)")`.
+  - Every snippet compiles in `backend/tests/test_snippets.py` (typical + hostile input, subfolder chapter); UI flows in `e2e/test_insert.py`.
+- [ ] Phase 2b – Chart snippet (CSV → plotting package) + Typst package download/caching — **deferred by the user** because this cloud environment blocks `packages.typst.org`. `DialogKind` already reserves `chart`.
 - [ ] Phase 3 – AI selector + Claude review
 - [ ] Phase 4 – LTeX+ rule checks
 - [ ] Phase 5 – Local AI live check

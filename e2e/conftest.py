@@ -85,6 +85,16 @@ def workspace(tmp_path: Path) -> Path:
     (root / "kapitel" / "01-einleitung.typ").write_text(
         "== Einleitung\n\nDieses Kapitel beschreibt die Arbeit.\n", encoding="utf-8"
     )
+    (root / "bilder").mkdir()
+    (root / "bilder" / "aufbau.svg").write_text(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="20">'
+        '<rect width="40" height="20" fill="teal"/></svg>',
+        encoding="utf-8",
+    )
+    (root / "quellen.bib").write_text(
+        "@article{knuth1984,\n  title = {Literate Programming},\n  year = {1984},\n}\n",
+        encoding="utf-8",
+    )
     return root
 
 

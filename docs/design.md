@@ -40,7 +40,7 @@ reads like an outline.
 
 ```
 +---------------------------------------------------------------------------+
-| New file  New folder  Open folder  Save  Export PDF | (insert toolbar, P2)  |
+| [icons: file actions] | Heading▾ Bold Italic List▾ Table Figure Equation … |
 +-----------+--------------------------+------------------------------------+
 | Files     | main.typ | 01-intro.typ  |  − 100 % +  Fit width               |
 | tree      |--------------------------|   +---------+                      |
@@ -54,3 +54,7 @@ reads like an outline.
 ```
 
 Left-aligned text everywhere; pages centred on the desk.
+
+Insert toolbar: words, not icons (Bold is set bold, Italic italic: the toolbar previews
+what it does). Below 1500 px window width the file actions collapse to icons with tooltips
+so the insert words stay readable. Insert dialogs always show the exact code they insert.
