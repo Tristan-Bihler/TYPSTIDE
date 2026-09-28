@@ -1,0 +1,14 @@
+line-length = 100
+target-version = "py312"
+extend-exclude = ["frontend", "*.md"]
+
+[lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "ANN", "S", "SIM", "RUF", "PTH"]
+
+[lint.isort]
+known-first-party = ["typst_writer"]
+
+[lint.per-file-ignores]
+"backend/tests/**" = ["S101"]
+# Dev scripts only start fixed, known executables with argument lists (no shell).
+"scripts/**" = ["S603"]
