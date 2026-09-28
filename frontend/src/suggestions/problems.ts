@@ -17,7 +17,7 @@ export function suggestionProblems(path: string, content: string, suggestions: r
       column: s.start - (lineStarts[line] ?? 0) + 1,
       severity: s.source === "rule" ? "grammar" : "ai",
       message,
-      source: s.source === "rule" ? "ltex" : s.source,
+      source: s.source === "rule" ? "ltex" : s.source === "local_ai" ? "local AI" : "Claude",
     };
   });
 }

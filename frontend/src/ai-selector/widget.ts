@@ -1,5 +1,6 @@
-// AI selector (bottom-right): two independent slots. Local AI = Ollama (Phase 5);
-// Claude = the logged-in `claude` command, drives the on-demand review.
+// AI selector (bottom-right): two independent slots. Local AI = Ollama on this computer,
+// drives the live check of edited paragraphs; Claude = the logged-in `claude` command,
+// drives the on-demand review. No fallback from one to the other.
 
 import { api } from "../api/client";
 import type { AIOverview, AIStatus } from "../api/types";
@@ -20,11 +21,12 @@ function fill(select: HTMLSelectElement, status: AIStatus, selected: string | nu
 export function mountAiSelector(host: HTMLElement, store: Store<AppState>): void {
   const local = el("select", { class: "status-select", "aria-label": "Local AI" });
   const claude = el("select", { class: "status-select", "aria-label": "Claude" });
+  const checking = el("span", { class: "ai-checking", role: "status", "aria-live": "polite" });
   host.append(
     el(
       "div",
       { class: "ai-selector", role: "group", "aria-label": "AI assistance" },
-      el("label", { class: "ai-slot" }, el("span", {}, "Local AI"), local),
+      el("label", { class: "ai-slot" }, el("span", {}, "Local AI"), local, checking),
       el("label", { class: "ai-slot" }, el("span", {}, "Claude"), claude),
     ),
   );
@@ -37,8 +39,8 @@ export function mountAiSelector(host: HTMLElement, store: Store<AppState>): void
     }
   };
 
-  claude.addEventListener("change", () => {
-    const settings = { local_model: store.get().ai?.settings.local_model ?? null, claude_model: claude.value || null };
+  const save = (): void => {
+    const settings = { local_model: local.value || null, claude_model: claude.value || null };
     api
       .setAiSettings(settings)
       .then((ai: AIOverview) => store.set({ ai }))
@@ -46,11 +48,18 @@ export function mountAiSelector(host: HTMLElement, store: Store<AppState>): void
         await showMessage("Could not select this model", error instanceof Error ? error.message : String(error));
         void load(true);
       });
-  });
+  };
+  local.addEventListener("change", save);
+  claude.addEventListener("change", save);
   // Re-check when the window gets focus again, e.g. after `claude auth login` in a terminal.
   window.addEventListener("focus", () => void load(true));
 
   store.subscribe((state, previous) => {
+    if (state === previous || state.localPending !== previous.localPending) {
+      const pending = state.localPending;
+      checking.textContent = pending === 0 ? "" : pending === 1 ? "checking…" : `checking ${pending}…`;
+      checking.title = pending === 0 ? "" : "The local AI is checking the paragraphs you edited.";
+    }
     if (state !== previous && state.ai === previous.ai) return;
     if (state.ai === null) {
       fill(local, { available: false, reason: "Checking…", models: [] }, null);

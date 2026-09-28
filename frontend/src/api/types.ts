@@ -49,6 +49,7 @@ export interface EntryPath {
 export type ClientMessage =
   | { type: "doc_changed"; path: string; content: string; version: number }
   | { type: "doc_opened"; path: string; content: string; version: number }
+  | { type: "typing_paused"; path: string; version: number; cursor: number }
   | { type: "doc_closed"; path: string }
   | { type: "refresh" };
 
@@ -73,7 +74,8 @@ export type ServerMessage =
   | { type: "problems"; problems: Problem[] }
   | { type: "workspace_changed"; workspace: WorkspaceInfo | null; reopened: boolean }
   | SuggestionsMessage
-  | { type: "checker_status"; status: CheckerStatus };
+  | { type: "checker_status"; status: CheckerStatus }
+  | { type: "local_check_status"; pending: number };
 
 export interface SuggestionsMessage {
   type: "suggestions";

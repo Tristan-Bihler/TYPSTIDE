@@ -40,7 +40,7 @@ export function checkerLabel(state: AppState): { text: string; title: string; in
     case "failed":
       return { text: "Spelling check off", title: status.reason, install: false };
     case "ready": {
-      const found = state.active === null ? undefined : state.findings[state.active];
+      const found = state.active === null ? undefined : state.findings[state.active]?.filter((p) => p.severity === "grammar");
       const title = "Spelling and grammar (LTeX+, offline). Hover an underline or press Ctrl+. for fixes.";
       if (found === undefined) return { text: "Spelling check on", title, install: false };
       const text = found.length === 0 ? "No spelling issues" : found.length === 1 ? "1 spelling issue" : `${found.length} spelling issues`;

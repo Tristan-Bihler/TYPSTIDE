@@ -1,7 +1,7 @@
-// Suggestion layer: underlines findings (spelling/grammar now, local AI in Phase 5) and
+// Suggestion layer: underlines findings (spelling/grammar in red, local AI in blue) and
 // shows a card with the reason and the fixes on hover, or with Ctrl+. at the cursor.
-// Marks move with the text while typing; a mark whose text is edited disappears until the
-// next check reports it again.
+// Each source's findings are replaced independently. Marks move with the text while
+// typing; a mark whose text is edited disappears until the next check reports it again.
 
 import { StateEffect, StateField, type ChangeDesc, type EditorState, type Extension } from "@codemirror/state";
 import {
@@ -30,13 +30,13 @@ export interface SuggestionHandlers {
   addToDictionary(suggestion: Suggestion): void;
 }
 
-export const setSuggestions = StateEffect.define<Suggestion[]>();
+export const setSuggestions = StateEffect.define<{ source: Suggestion["source"]; suggestions: Suggestion[] }>();
 const removeMatching = StateEffect.define<string>(); // ignoreKey
 const openCard = StateEffect.define<number | null>(); // position, or null to close
 
-/** Findings that are "the same" for Ignore: same rule and same text. */
+/** Findings that are "the same" for Ignore: same source, rule and text. */
 export function ignoreKey(suggestion: Suggestion): string {
-  return `${suggestion.rule ?? suggestion.category}\u0000${suggestion.original}`;
+  return `${suggestion.source}\u0000${suggestion.rule ?? suggestion.category}\u0000${suggestion.original}`;
 }
 
 /** Move marks through an edit; drop the ones whose text was changed. */
@@ -67,7 +67,11 @@ const marksField = StateField.define<Mark[]>({
   update(marks, tr) {
     let next = tr.docChanged ? mapMarks(marks, tr.changes) : marks;
     for (const effect of tr.effects) {
-      if (effect.is(setSuggestions)) next = toMarks(effect.value, tr.state.doc.length);
+      if (effect.is(setSuggestions)) {
+        const { source, suggestions } = effect.value;
+        const others = next.filter((m) => m.suggestion.source !== source);
+        next = [...others, ...toMarks(suggestions, tr.state.doc.length)];
+      }
       if (effect.is(removeMatching)) next = next.filter((m) => ignoreKey(m.suggestion) !== effect.value);
     }
     return next;
@@ -106,8 +110,8 @@ function card(view: EditorView, mark: Mark, handlers: SuggestionHandlers): HTMLE
       fix === "" ? "(remove)" : fix,
     );
     button.addEventListener("click", () => {
-      const current = markAt(view.state.field(marksField), mark.from);
-      if (current === null || view.state.sliceDoc(current.from, current.to) !== suggestion.original) return;
+      const current = view.state.field(marksField).find((m) => m.suggestion.id === suggestion.id);
+      if (current === undefined || view.state.sliceDoc(current.from, current.to) !== suggestion.original) return;
       view.dispatch({
         changes: { from: current.from, to: current.to, insert: fix },
         userEvent: "input.suggestion",
@@ -124,7 +128,7 @@ function card(view: EditorView, mark: Mark, handlers: SuggestionHandlers): HTMLE
     view.focus();
   });
   const actions = el("div", { class: "suggestion-actions" }, ignore);
-  if (suggestion.category === "spelling") {
+  if (suggestion.source === "rule" && suggestion.category === "spelling") {
     const add = el("button", { type: "button", class: "suggestion-action" }, "Add to dictionary");
     add.addEventListener("click", () => {
       handlers.addToDictionary(suggestion);

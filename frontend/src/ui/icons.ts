@@ -16,6 +16,7 @@ export const icons = {
   error: svg('<circle cx="8" cy="8" r="6"/><path d="M8 4.8v3.7M8 11v.2"/>'),
   warning: svg('<path d="M8 2l6.5 11.5h-13z"/><path d="M8 6.5v3M8 11.5v.2"/>'),
   spelling: svg('<path d="M3 9.5l2.5-6.5 2.5 6.5M3.9 7.3h3.2"/><path d="M1.5 13c1.1-1 2.1 1 3.2 0s2.1 1 3.2 0 2.1 1 3.2 0 2.1 1 3.4 0"/>'),
+  localAi: svg('<path d="M8 2l1.4 3.6L13 7l-3.6 1.4L8 12l-1.4-3.6L3 7l3.6-1.4z"/><path d="M12.5 11.5l.6 1.4 1.4.6-1.4.6-.6 1.4-.6-1.4-1.4-.6 1.4-.6z"/>'),
   up: svg('<path d="M8 13V3M4 7l4-4 4 4"/>'),
 };
 

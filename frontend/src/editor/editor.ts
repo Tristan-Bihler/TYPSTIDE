@@ -202,9 +202,9 @@ export class EditorPane {
     this.view.dispatch(setDiagnostics(state, diagnostics));
   }
 
-  /** Replace the findings shown in `path` (offsets must match its current text). */
-  setSuggestions(path: string, suggestions: Suggestion[]): void {
-    const effects = setSuggestions.of(suggestions);
+  /** Replace the findings of one source in `path` (offsets must match its current text). */
+  setSuggestions(path: string, source: Suggestion["source"], suggestions: Suggestion[]): void {
+    const effects = setSuggestions.of({ source, suggestions });
     if (path === this.activePath) {
       this.view.dispatch({ effects });
       return;

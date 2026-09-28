@@ -9,6 +9,7 @@ const SERVER_TYPES = new Set([
   "workspace_changed",
   "suggestions",
   "checker_status",
+  "local_check_status",
 ]);
 
 export function parseServerMessage(raw: string): ServerMessage | null {

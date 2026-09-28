@@ -19,6 +19,7 @@ export interface AppState {
   problems: Problem[]; // from the last compile
   findings: Record<string, Problem[]>; // spelling/grammar per open file
   checker: CheckerStatus | null;
+  localPending: number; // paragraphs the local AI still has to check
   compile: { state: CompileState; main: string | null; durationMs: number | null };
   connected: boolean;
   cursor: { line: number; column: number };
@@ -34,6 +35,7 @@ export const initialState: AppState = {
   problems: [],
   findings: {},
   checker: null,
+  localPending: 0,
   compile: { state: "no_workspace", main: null, durationMs: null },
   connected: false,
   cursor: { line: 1, column: 1 },

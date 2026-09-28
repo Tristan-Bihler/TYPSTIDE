@@ -1,8 +1,8 @@
-import { ChangeSet } from "@codemirror/state";
+import { ChangeSet, EditorState } from "@codemirror/state";
 import { describe, expect, it } from "vitest";
 
 import type { Suggestion } from "../api/types";
-import { ignoreKey, mapMarks, markAt, toMarks } from "./layer";
+import { ignoreKey, mapMarks, markAt, marksOf, setSuggestions, suggestionLayer, toMarks } from "./layer";
 import { suggestionProblems } from "./problems";
 
 function finding(start: number, end: number, original: string, extra: Partial<Suggestion> = {}): Suggestion {
@@ -64,5 +64,24 @@ describe("suggestionProblems", () => {
       message: "Möglicher Tippfehler gefunden. (Fehlr → Fehler)",
       source: "ltex",
     });
+  });
+});
+
+describe("suggestion layer", () => {
+  it("replaces each source's findings independently", () => {
+    const doc = "Ein Fehlr, weil er hat keine Zeit.";
+    let state = EditorState.create({ doc, extensions: suggestionLayer({ ignore: () => {}, addToDictionary: () => {} }) });
+    const rule = finding(4, 9, "Fehlr");
+    const local = finding(11, 33, "weil er hat keine Zeit", { source: "local_ai", category: "grammar", rule: "", id: "l" });
+    state = state.update({ effects: setSuggestions.of({ source: "rule", suggestions: [rule] }) }).state;
+    state = state.update({ effects: setSuggestions.of({ source: "local_ai", suggestions: [local] }) }).state;
+    expect(marksOf(state).map((m) => m.suggestion.source).sort()).toEqual(["local_ai", "rule"]);
+    state = state.update({ effects: setSuggestions.of({ source: "rule", suggestions: [] }) }).state;
+    expect(marksOf(state).map((m) => m.suggestion.original)).toEqual(["weil er hat keine Zeit"]);
+  });
+
+  it("keeps ignore keys apart per source", () => {
+    const rule = finding(0, 5, "Fehlr", { category: "grammar" });
+    expect(ignoreKey(rule)).not.toBe(ignoreKey({ ...rule, source: "local_ai" }));
   });
 });

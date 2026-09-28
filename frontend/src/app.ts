@@ -22,8 +22,14 @@ import { showContextMenu } from "./ui/contextMenu";
 import { chooseAction, confirmAction, promptText, showMessage } from "./ui/dialog";
 import { basename } from "./ui/dom";
 
-// Keep in sync with [timing] doc_changed_debounce_ms in config.toml.
+// Keep in sync with [timing] in config.toml.
 const DOC_CHANGED_DEBOUNCE_MS = 300;
+const TYPING_PAUSED_MS = 1500;
+
+interface Checked {
+  content: string;
+  suggestions: Suggestion[];
+}
 
 function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -37,8 +43,10 @@ export class App implements Actions {
   private readonly timers = new Map<string, number>();
   /** Findings hidden with "Ignore", per file (for this session). */
   private readonly ignored = new Map<string, Set<string>>();
-  /** The last findings per file and the text they were found in. */
-  private readonly checked = new Map<string, { content: string; suggestions: Suggestion[] }>();
+  /** The last findings per file and source, with the text they were found in. */
+  private readonly checked = new Map<string, Map<Suggestion["source"], Checked>>();
+  /** Per file: sends typing_paused after a pause (local AI check). */
+  private readonly pauseTimers = new Map<string, number>();
 
   constructor(root: HTMLElement) {
     const shell = buildShell(root);
@@ -156,6 +164,9 @@ export class App implements Actions {
       case "checker_status":
         this.store.set({ checker: message.status });
         break;
+      case "local_check_status":
+        this.store.set({ localPending: message.pending });
+        break;
     }
   }
 
@@ -165,17 +176,28 @@ export class App implements Actions {
     const doc = this.store.get().docs.find((d) => d.path === message.path);
     // Findings for text that has changed since are dropped; the next check replaces them.
     if (doc === undefined || message.version !== doc.version) return;
-    this.checked.set(doc.path, { content: doc.content, suggestions: message.suggestions });
-    this.renderFindings(doc.path);
+    const bySource = this.checked.get(doc.path) ?? new Map<Suggestion["source"], Checked>();
+    bySource.set(message.source, { content: doc.content, suggestions: message.suggestions });
+    this.checked.set(doc.path, bySource);
+    const ignored = this.ignored.get(doc.path);
+    this.editor.setSuggestions(
+      doc.path,
+      message.source,
+      message.suggestions.filter((s) => !ignored?.has(ignoreKey(s))),
+    );
+    this.updateProblems(doc.path);
   }
 
-  private renderFindings(path: string): void {
-    const checked = this.checked.get(path);
-    if (checked === undefined) return;
+  /** Problems panel entries of `path` from every source, minus ignored findings. */
+  private updateProblems(path: string): void {
     const ignored = this.ignored.get(path);
-    const shown = checked.suggestions.filter((s) => !ignored?.has(ignoreKey(s)));
-    this.editor.setSuggestions(path, shown);
-    const problems = suggestionProblems(path, checked.content, shown);
+    const problems = [...(this.checked.get(path)?.values() ?? [])].flatMap(({ content, suggestions }) =>
+      suggestionProblems(
+        path,
+        content,
+        suggestions.filter((s) => !ignored?.has(ignoreKey(s))),
+      ),
+    );
     this.store.set({ findings: { ...this.store.get().findings, [path]: problems } });
   }
 
@@ -183,14 +205,7 @@ export class App implements Actions {
     const keys = this.ignored.get(path) ?? new Set<string>();
     keys.add(ignoreKey(suggestion));
     this.ignored.set(path, keys);
-    const checked = this.checked.get(path);
-    if (checked === undefined) return;
-    const problems = suggestionProblems(
-      path,
-      checked.content,
-      checked.suggestions.filter((s) => !keys.has(ignoreKey(s))),
-    );
-    this.store.set({ findings: { ...this.store.get().findings, [path]: problems } });
+    this.updateProblems(path);
   }
 
   private async addWord(suggestion: Suggestion): Promise<void> {
@@ -252,11 +267,22 @@ export class App implements Actions {
       path,
       window.setTimeout(() => this.live.send({ type: "doc_changed", path, content, version }), DOC_CHANGED_DEBOUNCE_MS),
     );
+    // After a longer pause the local AI may check the edited paragraphs (backend decides).
+    window.clearTimeout(this.pauseTimers.get(path));
+    this.pauseTimers.set(
+      path,
+      window.setTimeout(() => {
+        const state = this.editor.activeState();
+        const cursor = this.store.get().active === path && state !== null ? state.selection.main.head : 0;
+        this.live.send({ type: "typing_paused", path, version, cursor });
+      }, TYPING_PAUSED_MS),
+    );
   }
 
   private resetDocs(): void {
-    for (const timer of this.timers.values()) window.clearTimeout(timer);
+    for (const timer of [...this.timers.values(), ...this.pauseTimers.values()]) window.clearTimeout(timer);
     this.timers.clear();
+    this.pauseTimers.clear();
     this.editor.closeAll();
     this.preview.clear();
     this.ignored.clear();
@@ -289,6 +315,8 @@ export class App implements Actions {
   private forget(path: string): void {
     window.clearTimeout(this.timers.get(path));
     this.timers.delete(path);
+    window.clearTimeout(this.pauseTimers.get(path));
+    this.pauseTimers.delete(path);
     this.live.send({ type: "doc_closed", path });
     this.editor.close(path);
     this.ignored.delete(path);

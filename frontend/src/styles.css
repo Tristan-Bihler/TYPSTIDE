@@ -22,6 +22,7 @@
   --claude: #7a3db8;
   --claude-wash: rgba(122, 61, 184, 0.1);
   --spelling: #cf2350;
+  --local-ai: #1f6fd1;
 
   --font-ui: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
   --font-source: "Cascadia Code", "JetBrains Mono", "SF Mono", Consolas, ui-monospace, monospace;
@@ -52,6 +53,7 @@
     --claude: #c79bff;
     --claude-wash: rgba(199, 155, 255, 0.14);
     --spelling: #ff7a93;
+    --local-ai: #6cb2ff;
     color-scheme: dark;
   }
 }
@@ -391,6 +393,10 @@ select {
   color: var(--spelling);
 }
 
+.problem.ai .icon {
+  color: var(--local-ai);
+}
+
 .problem-message {
   overflow-wrap: anywhere;
 }
@@ -580,6 +586,17 @@ select {
 
 .suggestion-card.claude {
   border-left-color: var(--claude);
+}
+
+.suggestion-card.local_ai {
+  border-left-color: var(--local-ai);
+}
+
+.editor-surface .cm-suggestion-local_ai {
+  text-decoration: underline wavy var(--local-ai);
+  text-decoration-thickness: 1px;
+  text-decoration-skip-ink: none;
+  text-underline-offset: 3px;
 }
 
 .suggestion-reason {
@@ -829,6 +846,15 @@ select {
 
 .checker-status[data-state="failed"] {
   color: var(--error);
+}
+
+.ai-checking {
+  margin-left: 6px;
+  color: var(--local-ai);
+}
+
+.ai-checking:empty {
+  display: none;
 }
 
 .ai-selector {

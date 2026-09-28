@@ -7,8 +7,8 @@ import { allProblems, type AppState, type Store } from "../state/store";
 import { el } from "../ui/dom";
 import { iconNode, icons } from "../ui/icons";
 
-const ICONS = { error: icons.error, warning: icons.warning, grammar: icons.spelling, ai: icons.spelling };
-const LABELS = { error: "Error", warning: "Warning", grammar: "Spelling or grammar", ai: "Suggestion" };
+const ICONS = { error: icons.error, warning: icons.warning, grammar: icons.spelling, ai: icons.localAi };
+const LABELS = { error: "Error", warning: "Warning", grammar: "Spelling or grammar", ai: "Local AI suggestion" };
 
 export function groupByFile(problems: Problem[]): Map<string, Problem[]> {
   const groups = new Map<string, Problem[]>();
