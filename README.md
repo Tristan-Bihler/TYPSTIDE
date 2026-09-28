@@ -26,6 +26,19 @@ Open a folder, and the preview on the right always shows the folder's **main fil
 unsaved edits in any open chapter. *Save* (Ctrl+S) writes all changed files; *Export PDF*
 exports exactly what the preview shows.
 
+Click anywhere in the preview to jump to that place in the source; with *Preview follows
+the cursor* (Settings, Ctrl+,) the preview scrolls to the paragraph you are editing.
+
+### Optional language tools
+
+Both are downloaded only when you ask (Settings, or the status bar for spelling), checked
+against the SHA-256 in `config.toml`, and then work offline:
+
+```sh
+python scripts/install_ltex.py       # spelling and grammar (LTeX+, about 320 MB)
+python scripts/install_tinymist.py   # autocomplete (Tinymist, about 70 MB)
+```
+
 ## Check
 
 ```sh
@@ -43,7 +56,7 @@ and free ports 8000/5173, so stop `dev.py` first.
 | `backend/` | FastAPI app (`src/typst_writer/`), tests |
 | `frontend/` | Vite + TypeScript UI (CodeMirror 6) |
 | `e2e/` | Playwright UI tests |
-| `scripts/` | `dev.py` (start), `check.py` (all checks) |
+| `scripts/` | `dev.py` (start), `check.py` (all checks), tool installers |
 | `docs/` | UI sketch, design notes |
 | `config.toml` | Ports, pinned Typst version, timings, limits, Claude model list |
 

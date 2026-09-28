@@ -61,3 +61,12 @@ Left-aligned text everywhere; pages centred on the desk.
 Insert toolbar: words, not icons (Bold is set bold, Italic italic: the toolbar previews
 what it does). Below 1500 px window width the file actions collapse to icons with tooltips
 so the insert words stay readable. Insert dialogs always show the exact code they insert.
+
+Preview ↔ source: pages show a pointer cursor; a click jumps to the source. When the
+preview follows the cursor it scrolls only if the spot is off-screen and marks it with a
+3 px `--accent` bar in the page's left margin that fades out after about 1.5 s (no fade
+with reduced motion).
+
+Autocomplete list: names in the source font, the signature or caption in `--pencil` on the
+right (one line, ellipsis), the selected row in `--accent-wash`, matched letters in
+`--accent`. Labels get an `@` icon.
