@@ -109,6 +109,22 @@ class TypingPaused(BaseModel):
     cursor: int = Field(default=0, ge=0)  # UTF-16 offset of the cursor
 
 
+class PreviewClick(BaseModel):
+    """A click in the preview: show that place in the source."""
+
+    type: Literal["preview_click"]
+    page: int = Field(ge=1)
+    y: float = Field(ge=0)  # pt from the top of the page
+
+
+class CursorMoved(BaseModel):
+    """The cursor moved to another paragraph: where is it in the preview?"""
+
+    type: Literal["cursor_moved"]
+    path: str
+    offset: int = Field(ge=0)  # UTF-16
+
+
 class DocClosed(BaseModel):
     type: Literal["doc_closed"]
     path: str
@@ -119,7 +135,8 @@ class Refresh(BaseModel):
 
 
 ClientMessage = Annotated[
-    DocChanged | DocOpened | TypingPaused | DocClosed | Refresh, Field(discriminator="type")
+    DocChanged | DocOpened | TypingPaused | PreviewClick | CursorMoved | DocClosed | Refresh,
+    Field(discriminator="type"),
 ]
 
 
@@ -165,6 +182,24 @@ class SuggestionsMessage(BaseModel):
     version: int | None
     source: SuggestionSource
     suggestions: list[Suggestion]
+
+
+class Jump(BaseModel):
+    """Answer to preview_click: the source position (UTF-16 offset) to show."""
+
+    type: Literal["jump"] = "jump"
+    path: str
+    offset: int
+
+
+class PreviewPosition(BaseModel):
+    """Answer to cursor_moved: where the cursor's paragraph is in the preview."""
+
+    type: Literal["preview_position"] = "preview_position"
+    path: str
+    offset: int
+    page: int
+    y: float
 
 
 class WordCount(BaseModel):

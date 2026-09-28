@@ -21,12 +21,16 @@ from typst_writer.api.schemas import (
     ClientMessage,
     CompileState,
     CompileStatus,
+    CursorMoved,
     DocChanged,
     DocClosed,
     DocOpened,
+    Jump,
     LocalCheckStatus,
     PageUpdate,
+    PreviewClick,
     PreviewPages,
+    PreviewPosition,
     ProblemsMessage,
     SuggestionsMessage,
     TypingPaused,
@@ -35,8 +39,11 @@ from typst_writer.api.schemas import (
 )
 from typst_writer.domain.errors import NoMainFileError, WorkspaceError
 from typst_writer.domain.models import Suggestion
+from typst_writer.domain.positions import TextPositions
 from typst_writer.domain.word_count import document_counts
+from typst_writer.ports.compiler import CompileFailedError
 from typst_writer.ports.rule_checker import CheckerStatus
+from typst_writer.services import source_map
 from typst_writer.services.check_orchestrator import CheckOrchestrator
 from typst_writer.services.local_check import LocalCheck
 from typst_writer.services.workspace import WorkspaceService
@@ -62,6 +69,7 @@ class Session:
             services.local_ai, self._send_local, self._send_local_status, self._read_saved
         )
         self._local_tasks: set[asyncio.Task[None]] = set()
+        self._source_map: source_map.SourceMap | None = None  # valid until the next compile
 
     async def send(self, message: BaseModel) -> None:
         async with self._send_lock:
@@ -96,6 +104,50 @@ class Session:
         except (WorkspaceError, OSError):
             return None
 
+    def _read(self, path: str) -> str | None:
+        return self.overlays[path] if path in self.overlays else self._read_saved(path)
+
+    async def _map(self) -> source_map.SourceMap | None:
+        if self._source_map is not None:
+            return self._source_map
+        info = self._services.workspace.info()
+        if info is None or info.main is None:
+            return None
+        try:
+            raw = await self._services.compile.query_wrapper(
+                self._services.workspace.guard.root,
+                info.main,
+                dict(self.overlays),
+                source_map.WRAPPER_NAME,
+                source_map.wrapper_source(info.main),
+                source_map.SELECTOR,
+            )
+        except (CompileFailedError, NoMainFileError, WorkspaceError):
+            return None  # e.g. the document has an error: no jumping until it compiles
+        self._source_map = source_map.build(raw, info.main, self._read)
+        return self._source_map
+
+    async def _jump(self, page: int, y: float) -> None:
+        mapping = await self._map()
+        found = mapping.to_source(page, y) if mapping is not None else None
+        if found is None:
+            return
+        path, index = found
+        offset = TextPositions(self._read(path) or "").utf16_offset(index)
+        with contextlib.suppress(WebSocketDisconnect, RuntimeError):
+            await self.send(Jump(path=path, offset=offset))
+
+    async def _locate(self, path: str, offset: int) -> None:
+        mapping = await self._map()
+        index = TextPositions(self._read(path) or "").index_of_utf16(offset)
+        found = mapping.to_preview(path, index) if mapping is not None else None
+        if found is None:
+            return
+        page, y = found
+        message = PreviewPosition(path=path, offset=offset, page=page, y=round(y, 1))
+        with contextlib.suppress(WebSocketDisconnect, RuntimeError):
+            await self.send(message)
+
     def spawn(self, work: Coroutine[object, object, None]) -> None:
         task = asyncio.create_task(work)
         self._local_tasks.add(task)
@@ -117,6 +169,7 @@ class Session:
             await self._compile_once()
 
     async def _compile_once(self) -> None:
+        self._source_map = None
         workspace = self._services.workspace
         info = workspace.info()
         if info is None or info.main is None:
@@ -182,10 +235,18 @@ class Session:
                 if self._in_workspace(path):
                     self.local.paused(path, version, cursor)
                 return
+            case PreviewClick(page=page, y=y):
+                self.spawn(self._jump(page, y))
+                return
+            case CursorMoved(path=path, offset=offset):
+                if self._in_workspace(path):
+                    self.spawn(self._locate(path, offset))
+                return
             case DocChanged(path=path, content=content, version=version):
                 if not self._in_workspace(path):
                     return
                 self.overlays[path] = content
+                self._source_map = None
                 self.checks.update(path, content, version)
                 self.local.changed(path, content, version)
             case DocClosed(path=path):

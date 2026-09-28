@@ -21,18 +21,25 @@ def count_words(source: str) -> int:
     return len(_WORD.findall(text))
 
 
-def includes(source: str, path: str) -> list[str]:
-    """Workspace-relative paths of the files `path` includes, in order. Paths starting with
-    "/" are relative to the project root, others to the including file."""
-    code = _NOT_CODE.sub(lambda m: m.group() if m.group().startswith('"') else " ", source)
-    found: list[str] = []
+def include_positions(source: str, path: str) -> list[tuple[int, str]]:
+    """(offset, workspace-relative path) of every `#include` in `source`. Paths starting
+    with "/" are relative to the project root, others to the including file."""
+    code = _NOT_CODE.sub(
+        lambda m: m.group() if m.group().startswith('"') else " " * len(m.group()), source
+    )
+    found: list[tuple[int, str]] = []
     for match in _INCLUDE.finditer(code):
         target = match.group(1)
         joined = target.lstrip("/") if target.startswith("/") else join(dirname(path), target)
         normalized = normpath(joined)
         if normalized != ".." and not normalized.startswith(("../", "/")):
-            found.append(normalized)
+            found.append((match.start(), normalized))
     return found
+
+
+def includes(source: str, path: str) -> list[str]:
+    """Workspace-relative paths of the files `path` includes, in order."""
+    return [target for _, target in include_positions(source, path)]
 
 
 def document_counts(main: str, read: Callable[[str], str | None]) -> dict[str, int]:

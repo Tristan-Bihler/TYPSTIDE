@@ -41,6 +41,23 @@ class CompileService:
             main_path, shadow_root = await self._prepare(root, main, overlays)
             return await self._compiler.to_svg_pages(main_path, shadow_root)
 
+    async def query_wrapper(
+        self,
+        root: Path,
+        main: str,
+        overlays: Mapping[str, str],
+        name: str,
+        source: str,
+        selector: str,
+    ) -> str:
+        """Query a helper file written into the mirror next to the main file (it is removed
+        again by the next sync; the workspace is never touched)."""
+        async with self._lock:
+            _, shadow_root = await self._prepare(root, main, overlays)
+            wrapper = shadow_root / name
+            wrapper.write_text(source, encoding="utf-8")
+            return await self._compiler.query(wrapper, shadow_root, selector)
+
     async def export_pdf(self, root: Path, main: str, overlays: Mapping[str, str]) -> bytes:
         async with self._lock:
             main_path, shadow_root = await self._prepare(root, main, overlays)

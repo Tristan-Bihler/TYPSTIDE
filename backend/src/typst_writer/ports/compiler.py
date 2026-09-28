@@ -22,3 +22,8 @@ class Compiler(Protocol):
     async def to_pdf(self, main: Path, root: Path) -> bytes:
         """Raises CompileFailedError if the document has errors."""
         ...
+
+    async def query(self, main: Path, root: Path, selector: str) -> str:
+        """JSON list of the `value` fields of the elements matching `selector`.
+        Raises CompileFailedError if the document has errors."""
+        ...

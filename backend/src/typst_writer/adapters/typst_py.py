@@ -5,6 +5,7 @@ import json
 import re
 import threading
 import time
+from collections import OrderedDict
 from functools import cache
 from pathlib import Path
 
@@ -52,14 +53,17 @@ class TypstPyCompiler:
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
-        self._key: tuple[Path, Path] | None = None
-        self._compiler: typst.Compiler | None = None
+        # A few compilers (preview main, click-to-jump wrapper), each keeping its cache.
+        self._compilers: OrderedDict[tuple[Path, Path], typst.Compiler] = OrderedDict()
 
     def _get(self, main: Path, root: Path) -> typst.Compiler:
-        if self._compiler is None or self._key != (main, root):
-            self._compiler = typst.Compiler(str(main), root=str(root))
-            self._key = (main, root)
-        return self._compiler
+        key = (main, root)
+        if key not in self._compilers:
+            self._compilers[key] = typst.Compiler(str(main), root=str(root))
+            while len(self._compilers) > 4:
+                self._compilers.popitem(last=False)
+        self._compilers.move_to_end(key)
+        return self._compilers[key]
 
     def _warnings(self, warnings: list[typst.TypstWarning], root: Path) -> list[Problem]:
         return [
@@ -100,6 +104,21 @@ class TypstPyCompiler:
         if not isinstance(output, bytes):
             raise TypeError("typst-py returned no PDF data")
         return output
+
+    def _query_blocking(self, main: Path, root: Path, selector: str) -> str:
+        root = root.resolve()
+        with self._lock:
+            try:
+                output = self._get(main, root).query(selector, field="value")
+            except typst.TypstError as e:
+                problem = parse_diagnostic(e.message, e.diagnostic, e.hints, "error", root)
+                raise CompileFailedError([problem]) from e
+            except RuntimeError as e:  # typst-py raises plain RuntimeErrors for some failures
+                raise CompileFailedError([]) from e
+        return output if isinstance(output, str) else output.decode("utf-8")
+
+    async def query(self, main: Path, root: Path, selector: str) -> str:
+        return await asyncio.to_thread(self._query_blocking, main, root, selector)
 
     async def to_svg_pages(self, main: Path, root: Path) -> CompileResult:
         return await asyncio.to_thread(self._svg_blocking, main, root)
