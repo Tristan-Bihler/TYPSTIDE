@@ -10,12 +10,13 @@ from typst_writer.adapters.typst_py import TypstPyCompiler, typst_version
 from typst_writer.api import rest, websocket
 from typst_writer.api.deps import Services
 from typst_writer.api.schemas import ErrorResponse
-from typst_writer.config import AppConfig, load_config
+from typst_writer.config import SNIPPETS_PATH, AppConfig, load_config
 from typst_writer.domain import errors
 from typst_writer.infra.app_dirs import cache_dir, config_dir
 from typst_writer.infra.state_store import StateStore
 from typst_writer.ports.compiler import CompileFailedError
 from typst_writer.services.compile import CompileService
+from typst_writer.services.snippets import SnippetService
 from typst_writer.services.workspace import WorkspaceService
 
 # Never configurable: the app must only be reachable from this machine.
@@ -29,6 +30,8 @@ _STATUS: dict[type[errors.WorkspaceError], tuple[int, str]] = {
     errors.InvalidNameError: (422, "invalid_name"),
     errors.NotATextFileError: (415, "not_text"),
     errors.NoMainFileError: (409, "no_main"),
+    errors.UnknownSnippetError: (404, "unknown_snippet"),
+    errors.InvalidSnippetParamsError: (422, "invalid_params"),
 }
 
 
@@ -60,6 +63,7 @@ def create_app(config: AppConfig) -> FastAPI:
         config=config,
         workspace=workspace,
         compile=CompileService(TypstPyCompiler(), cache_dir()),
+        snippets=SnippetService(SNIPPETS_PATH),
         hub=websocket.Hub(workspace),
     )
 

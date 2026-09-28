@@ -1,6 +1,6 @@
 """Request/response and WebSocket message models. Mirrored in frontend/src/api/types.ts."""
 
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -49,6 +49,20 @@ class SetMainRequest(BaseModel):
 
 class ExportRequest(BaseModel):
     overlays: dict[str, str] = {}
+
+
+class OverlaysRequest(BaseModel):
+    """Unsaved editor buffers by workspace-relative path."""
+
+    overlays: dict[str, str] = {}
+
+
+class RenderRequest(OverlaysRequest):
+    params: dict[str, Any] = {}
+
+
+class RenderResponse(BaseModel):
+    code: str
 
 
 class FileContent(BaseModel):

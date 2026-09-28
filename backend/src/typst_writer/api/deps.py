@@ -7,6 +7,7 @@ from fastapi import Depends, Request
 
 from typst_writer.config import AppConfig
 from typst_writer.services.compile import CompileService
+from typst_writer.services.snippets import SnippetService
 from typst_writer.services.workspace import WorkspaceService
 
 if TYPE_CHECKING:
@@ -18,6 +19,7 @@ class Services:
     config: AppConfig
     workspace: WorkspaceService
     compile: CompileService
+    snippets: SnippetService
     hub: "Hub"
 
 

@@ -13,11 +13,17 @@ from typst_writer.api.schemas import (
     FileContent,
     HealthResponse,
     OpenWorkspaceRequest,
+    OverlaysRequest,
     RenameRequest,
+    RenderRequest,
+    RenderResponse,
     SaveFileRequest,
     SetMainRequest,
 )
 from typst_writer.domain.errors import NoMainFileError
+from typst_writer.domain.models import Snippet
+from typst_writer.infra.paths import WorkspaceGuard
+from typst_writer.services.references import WorkspaceIndex, build_index
 from typst_writer.services.workspace import DirListing, Tree, WorkspaceInfo
 
 router = APIRouter(prefix="/api")
@@ -101,6 +107,34 @@ async def delete_entry(s: ServicesDep, path: str = Query()) -> EntryPath:
     s.workspace.delete(path)
     await s.hub.workspace_changed()
     return EntryPath(path=path)
+
+
+# --- insert toolbar -----------------------------------------------------------------
+
+
+def _index(guard: WorkspaceGuard, overlays: dict[str, str]) -> WorkspaceIndex:
+    for rel in overlays:
+        guard.resolve(rel)  # reject paths outside the workspace
+    return build_index(guard, overlays)
+
+
+@router.get("/snippets")
+async def list_snippets(s: ServicesDep) -> list[Snippet]:
+    return s.snippets.list()
+
+
+@router.post("/snippets/{snippet_id}/render")
+async def render_snippet(snippet_id: str, body: RenderRequest, s: ServicesDep) -> RenderResponse:
+    """Typst code for a dialog snippet. Unsaved buffers are needed to keep labels unique."""
+    guard = s.workspace.guard
+    code = s.snippets.render(snippet_id, body.params, guard, _index(guard, body.overlays))
+    return RenderResponse(code=code)
+
+
+@router.post("/workspace/references")
+async def references(body: OverlaysRequest, s: ServicesDep) -> WorkspaceIndex:
+    """Labels, citation keys and images for the insert dialogs."""
+    return _index(s.workspace.guard, body.overlays)
 
 
 # --- export --------------------------------------------------------------------------
