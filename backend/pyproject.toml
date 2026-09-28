@@ -10,6 +10,8 @@ dependencies = [
     "typst==0.15.0",
     # Downloads LTeX+ once on request (Phase 4); talks to Ollama (Phase 5).
     "httpx>=0.28",
+    # The Windows app's window (Edge WebView2); only installed on Windows (Phase 7).
+    "pywebview>=6.2; sys_platform == 'win32'",
 ]
 
 [project.scripts]
@@ -22,6 +24,8 @@ dev = [
     "pytest>=9.1",
     "ruff>=0.16",
 ]
+# Builds the Windows app (scripts/build_windows.py); Windows only.
+build = ["pyinstaller>=6.22; sys_platform == 'win32'"]
 
 [build-system]
 requires = ["uv_build>=0.8,<0.9"]

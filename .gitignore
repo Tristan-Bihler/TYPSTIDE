@@ -19,3 +19,6 @@ dist/
 Thumbs.db
 .vscode/
 .idea/
+
+# Windows app build (scripts/build_windows.py)
+build/

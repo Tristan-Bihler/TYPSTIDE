@@ -42,6 +42,7 @@ def main() -> int:
                 "backend/tests",
                 "scripts",
                 "e2e",
+                "packaging/launcher.py",
                 ".claude/skills/typst-syntax/scripts",
             ],
             ROOT,

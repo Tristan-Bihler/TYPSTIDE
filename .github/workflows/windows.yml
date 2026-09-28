@@ -1,0 +1,81 @@
+# Builds the Windows app (installer) and checks it: the self-test runs on the built
+# program and again after a silent install. Download the installer from the run's
+# artifacts ("typst-writer-setup").
+name: Windows app
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Install Inno Setup
+        run: |
+          $iscc = Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress }
+          if (-not (Test-Path $iscc)) { throw "Inno Setup was not installed" }
+
+      - name: Build
+        run: uv run --no-project --python 3.12 python scripts/build_windows.py
+
+      - name: Self-test (built program)
+        run: |
+          $exe = "build\pyinstaller\dist\typst-writer\typst-writer.exe"
+          $run = Start-Process $exe -ArgumentList "--self-test", "--report", "$pwd\self-test-built.json" -Wait -PassThru
+          Get-Content self-test-built.json
+          if ($run.ExitCode -ne 0) { throw "self-test failed ($($run.ExitCode))" }
+
+      - name: Install silently and self-test (installed program)
+        run: |
+          $setup = Start-Process dist\typst-writer-setup.exe -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/CURRENTUSER" -Wait -PassThru
+          if ($setup.ExitCode -ne 0) { throw "installer failed ($($setup.ExitCode))" }
+          $exe = Join-Path $env:LOCALAPPDATA "Programs\typst-writer\typst-writer.exe"
+          if (-not (Test-Path $exe)) { throw "not installed at $exe" }
+          $run = Start-Process $exe -ArgumentList "--self-test", "--report", "$pwd\self-test-installed.json" -Wait -PassThru
+          Get-Content self-test-installed.json
+          if ($run.ExitCode -ne 0) { throw "self-test failed ($($run.ExitCode))" }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: typst-writer-setup
+          path: dist/typst-writer-setup.exe
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Collect logs
+        if: failure()
+        run: |
+          New-Item -ItemType Directory -Force diagnostics | Out-Null
+          Copy-Item self-test-*.json diagnostics -ErrorAction SilentlyContinue
+          Copy-Item "$env:LOCALAPPDATA\typst-writer\logs\*" diagnostics -ErrorAction SilentlyContinue
+          Copy-Item "$env:TEMP\typst-writer-self-test-*\home\cache\logs\*" diagnostics -ErrorAction SilentlyContinue
+          Copy-Item build\pyinstaller\work\typst-writer\warn-typst-writer.txt diagnostics -ErrorAction SilentlyContinue
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: diagnostics
+          path: diagnostics
