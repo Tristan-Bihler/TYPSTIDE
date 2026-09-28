@@ -1,0 +1,45 @@
+[project]
+name = "typst-writer"
+version = "0.1.0"
+description = "Local, offline-first Typst editor backend"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi>=0.141,<1",
+    "uvicorn[standard]>=0.54,<1",
+    # Pinned: generated snippets and tests are verified against exactly this Typst version.
+    "typst==0.15.0",
+]
+
+[project.scripts]
+typst-writer = "typst_writer.main:run"
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28",
+    "mypy>=2.3",
+    "pytest>=9.1",
+    "ruff>=0.16",
+]
+
+[build-system]
+requires = ["uv_build>=0.8,<0.9"]
+build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "ANN", "S", "SIM", "RUF", "PTH"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
+
+[tool.mypy]
+strict = true
+python_version = "3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Starlette's TestClient now prefers `httpx2`; httpx is the client listed in CLAUDE.md.
+filterwarnings = ["ignore:Using `httpx` with `starlette.testclient`"]

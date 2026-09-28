@@ -1,0 +1,26 @@
+# typst-writer configuration. No secrets here: the Anthropic API key comes from
+# the ANTHROPIC_API_KEY environment variable or the OS keyring only.
+
+[server]
+# The backend always binds to 127.0.0.1; only the ports are configurable.
+backend_port = 8000
+frontend_port = 5173
+
+[typst]
+# Must match the typst-py pin in backend/pyproject.toml.
+version = "0.15.0"
+
+[timing]
+doc_changed_debounce_ms = 300
+typing_paused_ms = 1500
+
+[limits]
+max_ws_message_bytes = 2_000_000
+max_ai_text_chars = 20_000
+
+[claude]
+# Claude model IDs offered in the AI selector. Empty until Phase 3.
+models = []
+
+[ollama]
+base_url = "http://127.0.0.1:11434"

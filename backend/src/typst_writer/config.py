@@ -1,0 +1,59 @@
+"""Load and validate `config.toml` from the repository root."""
+
+import os
+import tomllib
+from pathlib import Path
+
+from pydantic import BaseModel, ConfigDict
+
+CONFIG_ENV_VAR = "TYPST_WRITER_CONFIG"
+DEFAULT_CONFIG_PATH = Path(__file__).resolve().parents[3] / "config.toml"
+
+
+class _Section(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+class ServerConfig(_Section):
+    backend_port: int = 8000
+    frontend_port: int = 5173
+
+
+class TypstConfig(_Section):
+    version: str = "0.15.0"
+
+
+class TimingConfig(_Section):
+    doc_changed_debounce_ms: int = 300
+    typing_paused_ms: int = 1500
+
+
+class LimitsConfig(_Section):
+    max_ws_message_bytes: int = 2_000_000
+    max_ai_text_chars: int = 20_000
+
+
+class ClaudeConfig(_Section):
+    models: list[str] = []
+
+
+class OllamaConfig(_Section):
+    base_url: str = "http://127.0.0.1:11434"
+
+
+class AppConfig(_Section):
+    server: ServerConfig = ServerConfig()
+    typst: TypstConfig = TypstConfig()
+    timing: TimingConfig = TimingConfig()
+    limits: LimitsConfig = LimitsConfig()
+    claude: ClaudeConfig = ClaudeConfig()
+    ollama: OllamaConfig = OllamaConfig()
+
+
+def load_config(path: Path | None = None) -> AppConfig:
+    """Read the config file; `TYPST_WRITER_CONFIG` overrides the default location."""
+    if path is None:
+        env_path = os.environ.get(CONFIG_ENV_VAR)
+        path = Path(env_path) if env_path else DEFAULT_CONFIG_PATH
+    with path.open("rb") as f:
+        return AppConfig.model_validate(tomllib.load(f))
