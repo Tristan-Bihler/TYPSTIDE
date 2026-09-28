@@ -19,6 +19,8 @@
   --syntax-ref: #b04a00;
   --syntax-string: #5b6b00;
   --syntax-number: #0f6f8f;
+  --claude: #7a3db8;
+  --claude-wash: rgba(122, 61, 184, 0.1);
 
   --font-ui: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
   --font-source: "Cascadia Code", "JetBrains Mono", "SF Mono", Consolas, ui-monospace, monospace;
@@ -46,6 +48,8 @@
     --syntax-ref: #ffa657;
     --syntax-string: #c5d86d;
     --syntax-number: #6cc6e6;
+    --claude: #c79bff;
+    --claude-wash: rgba(199, 155, 255, 0.14);
     color-scheme: dark;
   }
 }
@@ -1112,4 +1116,148 @@ select {
   background: var(--chrome);
   font: 12px/1.5 var(--font-source);
   white-space: pre;
+}
+
+.context-menu button:disabled {
+  color: var(--pencil);
+  cursor: default;
+  background: transparent;
+}
+
+/* ---- Claude review -------------------------------------------------------------- */
+
+.mode-list {
+  display: grid;
+  gap: 6px;
+}
+
+.mode-option {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--paper);
+  text-align: left;
+  cursor: pointer;
+}
+
+.mode-option:hover,
+.mode-option:focus-visible {
+  border-color: var(--claude);
+  background: var(--claude-wash);
+  outline: none;
+}
+
+.mode-label {
+  font-weight: 600;
+}
+
+.mode-description {
+  color: var(--pencil);
+}
+
+.progress-bar {
+  height: 3px;
+  margin: 8px 0 12px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent 0%, var(--claude) 50%, transparent 100%) 0 0 / 40% 100% no-repeat, var(--claude-wash);
+  animation: progress-slide 1.4s ease-in-out infinite;
+}
+
+@keyframes progress-slide {
+  from {
+    background-position: -40% 0, 0 0;
+  }
+  to {
+    background-position: 140% 0, 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progress-bar {
+    animation: none;
+    background: var(--claude-wash);
+  }
+}
+
+.diff-dialog {
+  width: min(640px, calc(100vw - 32px));
+}
+
+.change-list {
+  display: grid;
+  gap: 8px;
+  max-height: min(56vh, 520px);
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+
+.change {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--claude);
+  border-radius: var(--radius);
+}
+
+.change.rejected {
+  border-left-color: var(--rule);
+  opacity: 0.6;
+}
+
+.change-text {
+  font-family: var(--font-source);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.change-text del {
+  color: var(--pencil);
+  text-decoration-color: var(--pencil);
+}
+
+.change-text ins {
+  color: var(--claude);
+  text-decoration: underline;
+  text-decoration-color: var(--claude);
+  text-underline-offset: 3px;
+}
+
+.change.rejected ins {
+  text-decoration: line-through;
+}
+
+.change-arrow {
+  margin: 0 8px;
+  color: var(--pencil);
+}
+
+.change-reason {
+  grid-column: 1;
+  margin: 0 !important;
+  color: var(--pencil);
+}
+
+.change-actions {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  display: flex;
+  align-items: start;
+  gap: 4px;
+}
+
+.button.small {
+  height: 26px;
+  padding: 0 10px;
+}
+
+.change-actions .button[aria-pressed="true"] {
+  border-color: var(--claude);
+  background: var(--claude-wash);
+  color: var(--claude);
 }

@@ -30,6 +30,7 @@ main document on the right, always.
 | `--accent` | `#2b4acb` | `#8ea2ff` | royal-blue ink: focus, active, main file |
 | `--error` | `#c4302b` | `#ff7b72` | compile errors |
 | `--warning` | `#a86a12` | `#e3b341` | warnings |
+| `--claude` | `#7a3db8` | `#c79bff` | Claude suggestions (CLAUDE.md: Claude = purple) |
 
 Type: UI `"Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif` at 13 px;
 source `"Cascadia Code", "JetBrains Mono", "SF Mono", Consolas, ui-monospace, monospace`

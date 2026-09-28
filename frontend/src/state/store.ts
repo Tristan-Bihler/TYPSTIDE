@@ -1,6 +1,6 @@
 // App state store: one plain object, shallow updates, synchronous subscribers.
 
-import type { CompileState, Problem, Tree, WorkspaceInfo } from "../api/types";
+import type { AIOverview, CompileState, Problem, Tree, WorkspaceInfo } from "../api/types";
 
 export type Language = "de-DE" | "en-US";
 
@@ -20,6 +20,7 @@ export interface AppState {
   connected: boolean;
   cursor: { line: number; column: number };
   language: Language;
+  ai: AIOverview | null;
 }
 
 export const initialState: AppState = {
@@ -32,6 +33,7 @@ export const initialState: AppState = {
   connected: false,
   cursor: { line: 1, column: 1 },
   language: "de-DE",
+  ai: null,
 };
 
 type Listener<T> = (state: T, previous: T) => void;

@@ -27,6 +27,9 @@ export interface EditorCallbacks {
   onSave(): void;
   onActivate(path: string): void;
   onClose(path: string): void;
+  onReview(): void;
+  /** Right-click inside the text; return true when a custom menu was shown. */
+  onContextMenu(event: MouseEvent): boolean;
 }
 
 /** Convert 1-based line/column to a document offset, clamped to the document. */
@@ -85,6 +88,7 @@ export class EditorPane {
         this.shortcuts.of(keymap.of(this.shortcutBindings)),
         keymap.of([
           { key: "Mod-s", preventDefault: true, run: () => (this.callbacks.onSave(), true) },
+          { key: "Mod-Shift-k", preventDefault: true, run: () => (this.callbacks.onReview(), true) },
           ...defaultKeymap,
           ...historyKeymap,
           indentWithTab,
@@ -99,6 +103,11 @@ export class EditorPane {
           }
         }),
         EditorView.contentAttributes.of({ "aria-label": "Document source", spellcheck: "false" }),
+        EditorView.domEventHandlers({
+          contextmenu: (event) => {
+            if (this.callbacks.onContextMenu(event)) event.preventDefault();
+          },
+        }),
       ],
     });
   }

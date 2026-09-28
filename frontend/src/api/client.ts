@@ -1,10 +1,14 @@
 // Typed REST client for /api. Mirrors backend/src/typst_writer/api/rest.py.
 
 import type {
+  AIOverview,
+  AISettings,
   DirListing,
   EntryPath,
   FileContent,
   Problem,
+  ReviewRequest,
+  ReviewResult,
   Snippet,
   Tree,
   WorkspaceIndex,
@@ -65,8 +69,9 @@ export async function getHealth(fetchFn: Fetch = fetch): Promise<HealthResponse>
   return body;
 }
 
-async function request<T>(method: string, url: string, body?: unknown): Promise<T> {
+async function request<T>(method: string, url: string, body?: unknown, signal?: AbortSignal): Promise<T> {
   const init: RequestInit = { method };
+  if (signal !== undefined) init.signal = signal;
   if (body !== undefined) {
     init.headers = { "Content-Type": "application/json" };
     init.body = JSON.stringify(body);
@@ -106,6 +111,11 @@ export const api = {
     request("POST", `/api/snippets/${encodeURIComponent(id)}/render`, { params, overlays }),
   references: (overlays: Record<string, string>): Promise<WorkspaceIndex> =>
     request("POST", "/api/workspace/references", { overlays }),
+  aiStatus: (refresh = false): Promise<AIOverview> =>
+    request("GET", `/api/ai/status${refresh ? "?refresh=true" : ""}`),
+  setAiSettings: (settings: AISettings): Promise<AIOverview> => request("PUT", "/api/ai/settings", settings),
+  review: (body: ReviewRequest, signal: AbortSignal): Promise<ReviewResult> =>
+    request("POST", "/api/review", body, signal),
 
   async exportPdf(overlays: Record<string, string>): Promise<{ blob: Blob; filename: string }> {
     const response = await fetch("/api/export/pdf", {

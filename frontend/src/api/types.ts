@@ -107,3 +107,51 @@ export interface WorkspaceIndex {
   bibliographies: string[];
   has_bibliography_call: boolean;
 }
+
+// --- AI -----------------------------------------------------------------------------
+
+export interface AIStatus {
+  available: boolean;
+  reason: string;
+  models: string[];
+}
+
+export interface AISettings {
+  local_model: string | null;
+  claude_model: string | null;
+}
+
+export interface AIOverview {
+  local: AIStatus;
+  claude: AIStatus;
+  settings: AISettings;
+}
+
+export type ReviewMode = "check" | "improve" | "shorten" | "explain";
+
+export interface ReviewRequest {
+  selection: string;
+  selection_start: number;
+  context_before: string;
+  context_after: string;
+  mode: ReviewMode;
+  language: "de-DE" | "en-US";
+}
+
+export interface Suggestion {
+  id: string;
+  source: "rule" | "local_ai" | "claude";
+  start: number; // UTF-16 document offsets, like CodeMirror
+  end: number;
+  original: string;
+  replacement: string;
+  reason: string;
+  category: string;
+}
+
+export interface ReviewResult {
+  revised_text: string;
+  explanation: string;
+  changes: Suggestion[];
+  dropped: number;
+}

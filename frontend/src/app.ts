@@ -15,6 +15,8 @@ import { movedPath, nameError, withTypExtension } from "./state/names";
 import { initialState, isDirty, Store, type AppState, type Language, type OpenDoc } from "./state/store";
 import { mountTopbar } from "./topbar/fileActions";
 import { mountInsertToolbar } from "./topbar/insertToolbar";
+import { reviewBlocker, reviewSelection } from "./review/review";
+import { showContextMenu } from "./ui/contextMenu";
 import { chooseAction, confirmAction, promptText, showMessage } from "./ui/dialog";
 import { basename, storage } from "./ui/dom";
 
@@ -48,6 +50,8 @@ export class App implements Actions {
       onSave: () => void this.saveAll(),
       onActivate: (path) => this.activate(path),
       onClose: (path) => void this.closeDoc(path),
+      onReview: () => void reviewSelection({ store: this.store, editor: this.editor }),
+      onContextMenu: (event) => this.editorMenu(event),
     });
     this.editor.show(null);
     mountInsertToolbar(insertHost, {
@@ -73,6 +77,33 @@ export class App implements Actions {
     window.addEventListener("beforeunload", (event) => {
       if (this.store.get().docs.some(isDirty)) event.preventDefault();
     });
+  }
+
+  /** Right-click with a selection: offer the Claude review (disabled with a reason when off). */
+  private editorMenu(event: MouseEvent): boolean {
+    const state = this.editor.activeState();
+    if (state === null || state.selection.main.empty || event.shiftKey) return false;
+    const blocker = reviewBlocker(this.store.get());
+    const { from, to } = state.selection.main;
+    const text = state.sliceDoc(from, to);
+    const review = {
+      label: "Review with Claude…   Ctrl+Shift+K",
+      action: () => void reviewSelection({ store: this.store, editor: this.editor }),
+      ...(blocker === null ? {} : { disabledReason: blocker }),
+    };
+    showContextMenu(event.clientX, event.clientY, [
+      review,
+      "separator",
+      { label: "Copy", action: () => void navigator.clipboard.writeText(text) },
+      {
+        label: "Cut",
+        action: () => {
+          void navigator.clipboard.writeText(text);
+          this.editor.apply({ changes: { from, to, insert: "" }, userEvent: "delete.cut" });
+        },
+      },
+    ]);
+    return true;
   }
 
   /** Unsaved buffers by path (for export and the insert dialogs). */

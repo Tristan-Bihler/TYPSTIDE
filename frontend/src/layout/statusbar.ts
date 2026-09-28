@@ -34,7 +34,7 @@ export function mountStatusbar(host: HTMLElement, store: Store<AppState>, action
   const left = el("div", { class: "status-left" }, cursor, language, compile);
   const right = el("div", { class: "status-right" });
   host.append(left, right);
-  mountAiSelector(right);
+  mountAiSelector(right, store);
 
   store.subscribe((state) => {
     cursor.textContent = state.active ? `Ln ${state.cursor.line}, Col ${state.cursor.column}` : "";

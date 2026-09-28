@@ -6,6 +6,8 @@ export interface MenuItem {
   label: string;
   action: () => void;
   danger?: boolean;
+  /** Shown but not clickable; the text explains why (tooltip). */
+  disabledReason?: string;
 }
 
 let current: HTMLElement | null = null;
@@ -28,6 +30,10 @@ export function showContextMenu(x: number, y: number, items: (MenuItem | "separa
       { type: "button", role: "menuitem", class: item.danger ? "danger" : "" },
       item.label,
     );
+    if (item.disabledReason !== undefined) {
+      button.disabled = true;
+      button.title = item.disabledReason;
+    }
     button.addEventListener("click", () => {
       closeMenu();
       item.action();
@@ -35,7 +41,7 @@ export function showContextMenu(x: number, y: number, items: (MenuItem | "separa
     menu.append(button);
   }
   menu.addEventListener("keydown", (event) => {
-    const buttons = [...menu.querySelectorAll("button")];
+    const buttons = [...menu.querySelectorAll("button")].filter((b) => !b.disabled);
     const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
     if (event.key === "Escape") closeMenu();
     if (event.key === "ArrowDown") buttons[(index + 1) % buttons.length]?.focus();
@@ -48,7 +54,7 @@ export function showContextMenu(x: number, y: number, items: (MenuItem | "separa
   menu.style.left = `${Math.min(x, innerWidth - rect.width - 4)}px`;
   menu.style.top = `${Math.min(y, innerHeight - rect.height - 4)}px`;
   current = menu;
-  menu.querySelector("button")?.focus();
+  menu.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus();
 }
 
 document.addEventListener("pointerdown", (event) => {
