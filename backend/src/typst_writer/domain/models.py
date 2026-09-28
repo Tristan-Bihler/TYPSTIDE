@@ -53,3 +53,50 @@ class Snippet(BaseModel):
         if self.kind == "wrap" and "{selection}" not in self.template:
             raise ValueError(f"{self.id}: wrap templates must contain {{selection}}")
         return self
+
+
+# --- AI -----------------------------------------------------------------------------
+
+SuggestionSource = Literal["rule", "local_ai", "claude"]
+ReviewMode = Literal["check", "improve", "shorten", "explain"]
+Language = Literal["de-DE", "en-US"]
+
+
+class Suggestion(BaseModel):
+    """A proposed replacement. `start`/`end` are UTF-16 offsets in the document, the unit
+    the browser editor (CodeMirror) uses."""
+
+    id: str
+    source: SuggestionSource
+    start: int
+    end: int
+    original: str
+    replacement: str
+    reason: str
+    category: str
+
+
+class ReviewRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    selection: str = Field(min_length=1)
+    selection_start: int = Field(0, ge=0)  # UTF-16 offset of the selection in the document
+    context_before: str = ""
+    context_after: str = ""
+    glossary: list[str] = []
+    mode: ReviewMode
+    language: Language = "de-DE"
+
+
+class ReviewResult(BaseModel):
+    revised_text: str
+    explanation: str = ""
+    changes: list[Suggestion]
+    dropped: int = 0  # proposed changes removed because they were unsafe or not locatable
+
+
+class AISettings(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    local_model: str | None = None
+    claude_model: str | None = None

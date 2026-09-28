@@ -42,7 +42,7 @@ def test_version_mismatch_refuses_to_start() -> None:
 
 def test_repo_config_file_is_valid() -> None:
     config = load_config()
-    assert config.claude.models == []
+    assert config.claude.models == ["sonnet", "opus", "haiku"]
 
 
 def test_unknown_config_keys_are_rejected(tmp_path: Path) -> None:

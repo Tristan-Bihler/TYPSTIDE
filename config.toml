@@ -19,8 +19,12 @@ max_ws_message_bytes = 2_000_000
 max_ai_text_chars = 20_000
 
 [claude]
-# Claude model IDs offered in the AI selector. Empty until Phase 3.
-models = []
+# Models offered in the AI selector's Claude slot. Claude runs through the locally installed
+# and logged-in `claude` command (Claude Code), so these are its --model values: aliases
+# such as "sonnet" always mean the latest model of that family; full model names work too.
+models = ["sonnet", "opus", "haiku"]
+# A review is cancelled (and the claude process stopped) after this many seconds.
+timeout_seconds = 120
 
 [ollama]
 base_url = "http://127.0.0.1:11434"

@@ -37,6 +37,7 @@ class LimitsConfig(_Section):
 
 class ClaudeConfig(_Section):
     models: list[str] = []
+    timeout_seconds: int = 120
 
 
 class OllamaConfig(_Section):

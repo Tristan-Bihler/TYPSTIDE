@@ -21,9 +21,9 @@ Read this file completely before every session. Work phase by phase (see "Phases
 - The editor must be fully usable with **no AI at all**. Default setting: both AI slots = `None`.
 - Bottom-right corner of the window: **AI selector widget** with two independent dropdowns:
   - `Local AI:` `None` + models reported by the local Ollama instance.
-  - `Claude:` `None` + Claude models from `config.toml`.
+  - `Claude:` `None` + Claude models (CLI aliases such as `sonnet`) from `config.toml`.
 - If Ollama is not reachable → local dropdown shows only `None` (disabled, tooltip explains why).
-- If `ANTHROPIC_API_KEY` is not set → Claude dropdown shows only `None` (disabled, tooltip explains why).
+- If the `claude` command (Claude Code) is not installed or not logged in → Claude dropdown shows only `None` (disabled, tooltip explains why). **User decision:** no API keys; Claude runs through the user's Claude Code login.
 - Local slot drives the live check. Claude slot drives the on-demand review. No hidden fallback from one to the other.
 - If Claude = `None`, the review shortcut and context-menu entry are disabled.
 - Selection is persisted in the local settings file and restored on start.
@@ -41,11 +41,11 @@ Read this file completely before every session. Work phase by phase (see "Phases
 
 ### Security
 - Bind server to `127.0.0.1` only; CORS restricted to the local frontend origin.
-- API key only from environment / OS keyring; never sent to the frontend, never logged, never written to settings files.
+- No API keys. The `claude` CLI subprocess gets a fixed argument list (no shell), the prompt on stdin, no tools (`--tools ""`), no MCP servers (`--strict-mcp-config`), an empty temp dir as working directory, an environment without `ANTHROPIC_API_KEY`, and a timeout. Its credentials are never read, logged or sent to the frontend.
 - All file access restricted to the opened workspace root (reject path traversal, resolve symlinks). File names for new files validated (allowed characters, `.typ` extension, no overwrite without confirmation).
 - Size limits on WebSocket messages and on text sent to AI providers.
 - Treat AI output as untrusted data: validate JSON with Pydantic, never execute it, only apply replacements after user confirmation.
-- Subprocesses (LTeX+, Tinymist) started with fixed argument lists, no shell.
+- Subprocesses (LTeX+, Tinymist, `claude`) started with fixed argument lists, no shell.
 
 ---
 
@@ -58,7 +58,7 @@ Read this file completely before every session. Work phase by phase (see "Phases
 | Rule checks | LTeX+ (`ltex-ls-plus`) via LSP over stdio | Typst-aware, offline, German |
 | Completion (Phase 6) | Tinymist via LSP | Typst completion and diagnostics |
 | Local AI | Ollama HTTP API via `httpx` | Swappable local models |
-| Claude | `anthropic` Python SDK | Streaming, structured output |
+| Claude | Claude Code CLI (`claude -p --output-format json --json-schema …`) | User decision: uses the existing Claude login, no API key, no SDK; structured output |
 | Frontend | TypeScript, Vite, CodeMirror 6 | Clean web UI, lint/underline support |
 | Desktop window (Phase 7) | pywebview (Edge WebView2 on Windows) | Native app window, same UI code |
 | Tooling | uv, pytest, mypy, ruff, vitest, Playwright | |
