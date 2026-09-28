@@ -30,8 +30,10 @@
   color-scheme: light;
 }
 
+/* Dark tokens: when the system is dark and the user has not chosen Light, or when the
+   user chose Dark (Settings → Appearance sets data-theme on <html>). */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --paper: #16181e;
     --chrome: #1c1f26;
     --desk: #0e1014;
@@ -56,6 +58,32 @@
     --local-ai: #6cb2ff;
     color-scheme: dark;
   }
+}
+
+:root[data-theme="dark"] {
+  --paper: #16181e;
+  --chrome: #1c1f26;
+  --desk: #0e1014;
+  --rule: #2b2f39;
+  --ink: #e3e6ee;
+  --pencil: #949cb0;
+  --accent: #8ea2ff;
+  --accent-wash: rgba(142, 162, 255, 0.14);
+  --error: #ff7b72;
+  --warning: #e3b341;
+  --hover: rgba(227, 230, 238, 0.07);
+  --page-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 8px 24px rgba(0, 0, 0, 0.45);
+  --stale-opacity: 0.8;
+  --syntax-code: #c79bff;
+  --syntax-math: #5fd4a8;
+  --syntax-ref: #ffa657;
+  --syntax-string: #c5d86d;
+  --syntax-number: #6cc6e6;
+  --claude: #c79bff;
+  --claude-wash: rgba(199, 155, 255, 0.14);
+  --spelling: #ff7a93;
+  --local-ai: #6cb2ff;
+  color-scheme: dark;
 }
 
 * {
@@ -1405,4 +1433,202 @@ select {
   border-color: var(--claude);
   background: var(--claude-wash);
   color: var(--claude);
+}
+
+/* ---- settings (settings/dialog.ts) ------------------------------------------------ */
+
+.settings-button {
+  margin-left: auto;
+  width: 30px;
+  padding: 0;
+  justify-content: center;
+}
+
+.settings-dialog {
+  width: min(560px, calc(100vw - 32px));
+}
+
+.settings-body {
+  max-height: min(64vh, 620px);
+  overflow-y: auto;
+  margin: 0 -20px;
+  padding: 0 20px;
+}
+
+.settings-section + .settings-section {
+  margin-top: 6px;
+  border-top: 1px solid var(--rule);
+}
+
+.settings-section h3 {
+  margin: 14px 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 0;
+}
+
+.setting-text label {
+  cursor: pointer;
+}
+
+.setting-hint {
+  margin: 2px 0 0;
+  color: var(--pencil);
+  font-size: 12px;
+}
+
+.setting-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+}
+
+.setting-status {
+  color: var(--pencil);
+  white-space: nowrap;
+}
+
+.setting-check {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+
+.setting-select {
+  flex: none;
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--paper);
+}
+
+.segmented {
+  display: inline-flex;
+  flex: none;
+  padding: 2px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--chrome);
+}
+
+.segment input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.segment span {
+  display: block;
+  padding: 3px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.segment input:checked + span {
+  background: var(--paper);
+  color: var(--accent);
+  box-shadow: 0 0 0 1px var(--rule);
+}
+
+.segment input:focus-visible + span {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* ---- status bar additions ----------------------------------------------------------- */
+
+.word-count:empty,
+.save-notice:empty {
+  display: none;
+}
+
+.save-notice {
+  color: var(--accent);
+}
+
+/* ---- find & replace (CodeMirror search panel) -------------------------------------- */
+
+.editor-surface .cm-panels {
+  border-color: var(--rule);
+  background: var(--chrome);
+  color: var(--ink);
+}
+
+.editor-surface .cm-search {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  padding: 6px 10px;
+  font: 12px var(--font-ui);
+}
+
+.editor-surface .cm-search input.cm-textfield {
+  height: 26px;
+  padding: 0 6px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--paper);
+  color: var(--ink);
+  font: 13px var(--font-source);
+}
+
+.editor-surface .cm-search input.cm-textfield:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.editor-surface .cm-search .cm-button {
+  height: 26px;
+  padding: 0 8px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--paper);
+  background-image: none;
+  color: var(--ink);
+  font: 12px var(--font-ui);
+}
+
+.editor-surface .cm-search .cm-button:hover {
+  background: var(--hover);
+}
+
+.editor-surface .cm-search label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--pencil);
+}
+
+.editor-surface .cm-search button[name="close"] {
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  color: var(--pencil);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.editor-surface .cm-searchMatch {
+  background: var(--accent-wash);
+  outline: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.editor-surface .cm-searchMatch-selected {
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.editor-surface .cm-selectionMatch {
+  background: var(--hover);
 }

@@ -2,10 +2,12 @@
 
 from playwright.sync_api import Page, expect
 
+from e2e.ui_helpers import expand_folder
+
 
 def select_last_sentence(page: Page) -> None:
     """Type a sentence on a new line in the chapter and select it."""
-    page.get_by_role("treeitem", name="kapitel").click()
+    expand_folder(page, "kapitel")
     page.get_by_role("treeitem", name="01-einleitung.typ").click()
     page.locator(".cm-content").click()
     page.keyboard.press("Control+End")

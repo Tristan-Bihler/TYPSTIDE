@@ -49,6 +49,25 @@ export function checkerLabel(state: AppState): { text: string; title: string; in
   }
 }
 
+const numberFormat = new Intl.NumberFormat("en-US");
+
+/** "523 of 12,345 words" while a chapter is open, "12,345 words" otherwise. */
+export function wordLabel(state: AppState): { text: string; title: string } {
+  const count = state.wordCount;
+  if (count === null || state.compile.main === null) return { text: "", title: "" };
+  const total = numberFormat.format(count.total);
+  const files = Object.keys(count.files).length;
+  const document = `Whole document: ${total} words in ${files === 1 ? "1 file" : `${files} files`} (main file and everything it includes).`;
+  const here = state.active === null ? undefined : count.files[state.active];
+  if (here === undefined || state.active === state.compile.main && files === 1) {
+    return { text: `${total} words`, title: document };
+  }
+  return {
+    text: `${numberFormat.format(here)} of ${total} words`,
+    title: `This file: ${numberFormat.format(here)} words. ${document}`,
+  };
+}
+
 export function mountStatusbar(host: HTMLElement, store: Store<AppState>, actions: Actions): void {
   const cursor = el("span", { class: "status-item" });
   const language = el("select", { class: "status-select", "aria-label": "Document language", title: "Language for spelling and grammar checks" });
@@ -60,7 +79,9 @@ export function mountStatusbar(host: HTMLElement, store: Store<AppState>, action
   const install = el("button", { type: "button", class: "status-button" }, "Install spelling check");
   install.addEventListener("click", () => void actions.installGrammar());
   const compile = el("span", { class: "status-item compile-status", role: "status" });
-  const left = el("div", { class: "status-left" }, cursor, language, checker, install, compile);
+  const words = el("span", { class: "status-item word-count" });
+  const saved = el("span", { class: "status-item save-notice", role: "status" });
+  const left = el("div", { class: "status-left" }, cursor, language, checker, install, compile, words, saved);
   const right = el("div", { class: "status-right" });
   host.append(left, right);
   mountAiSelector(right, store);
@@ -76,6 +97,10 @@ export function mountStatusbar(host: HTMLElement, store: Store<AppState>, action
     install.hidden = !spelling.install;
     install.title = spelling.title;
     compile.textContent = compileLabel(state);
+    const count = wordLabel(state);
+    words.textContent = count.text;
+    words.title = count.title;
+    saved.textContent = state.saveNotice === "saved" ? "Saved" : "";
     compile.dataset["state"] = state.connected ? state.compile.state : "offline";
   });
 }

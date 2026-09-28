@@ -23,7 +23,13 @@ export function mountTopbar(host: HTMLElement, store: Store<AppState>, actions: 
   const fileGroup = el("div", { class: "tool-group", role: "toolbar", "aria-label": "File" }, newFile, newFolder, open, save, exportPdf);
   // Filled from snippets.toml by mountInsertToolbar.
   const insertGroup = el("div", { class: "tool-group insert-toolbar", role: "toolbar", "aria-label": "Insert" });
-  host.append(fileGroup, el("div", { class: "tool-divider", role: "presentation" }), insertGroup);
+  const settings = el(
+    "button",
+    { type: "button", class: "tool settings-button", title: "Settings (Ctrl+,)", "aria-label": "Settings" },
+    iconNode(icons.settings),
+  );
+  settings.addEventListener("click", () => actions.openSettings());
+  host.append(fileGroup, el("div", { class: "tool-divider", role: "presentation" }), insertGroup, settings);
 
   store.subscribe((state) => {
     const hasWorkspace = state.workspace !== null;

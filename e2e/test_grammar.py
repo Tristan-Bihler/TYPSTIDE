@@ -5,12 +5,14 @@ from pathlib import Path
 
 from playwright.sync_api import Locator, Page, expect
 
+from e2e.ui_helpers import expand_folder
+
 CHAPTER = "Ein Fehlr im Text.\nDer Versuch wird durchgefürt.\n"
 
 
 def open_chapter(page: Page, workspace: Path, content: str = CHAPTER) -> None:
     (workspace / "kapitel" / "01-einleitung.typ").write_text(content, encoding="utf-8")
-    page.get_by_role("treeitem", name="kapitel").click()
+    expand_folder(page, "kapitel")
     page.get_by_role("treeitem", name="01-einleitung.typ").click()
 
 
@@ -77,11 +79,8 @@ def test_add_to_dictionary(page: Page, workspace: Path) -> None:
     expect(underline(page, "Beispeil")).to_have_count(0)
     expect(underline(page, "Fehlr")).to_be_visible()
     page.reload()
-    page.get_by_role("treeitem", name="kapitel").wait_for()
-    chapter = page.get_by_role("treeitem", name="01-einleitung.typ")
-    if not chapter.is_visible():  # the tree remembers expanded folders
-        page.get_by_role("treeitem", name="kapitel").click()
-    chapter.click()
+    expand_folder(page, "kapitel")
+    page.get_by_role("treeitem", name="01-einleitung.typ").click()
     expect(underline(page, "Fehlr")).to_be_visible()
     expect(underline(page, "Beispeil")).to_have_count(0)  # stays accepted
 

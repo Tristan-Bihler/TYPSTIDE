@@ -1,6 +1,6 @@
 // App state store: one plain object, shallow updates, synchronous subscribers.
 
-import type { AIOverview, CheckerStatus, CompileState, Problem, Tree, WorkspaceInfo } from "../api/types";
+import type { AIOverview, CheckerStatus, CompileState, Problem, Tree, UiSettings, WordCount, WorkspaceInfo } from "../api/types";
 
 export type Language = "de-DE" | "en-US";
 
@@ -20,6 +20,9 @@ export interface AppState {
   findings: Record<string, Problem[]>; // spelling/grammar per open file
   checker: CheckerStatus | null;
   localPending: number; // paragraphs the local AI still has to check
+  ui: UiSettings;
+  wordCount: WordCount | null;
+  saveNotice: "saved" | null; // shown briefly after an autosave
   compile: { state: CompileState; main: string | null; durationMs: number | null };
   connected: boolean;
   cursor: { line: number; column: number };
@@ -36,6 +39,9 @@ export const initialState: AppState = {
   findings: {},
   checker: null,
   localPending: 0,
+  ui: { theme: "system", autosave: true, autosave_delay_ms: 2000, preview_follows_cursor: true },
+  wordCount: null,
+  saveNotice: null,
   compile: { state: "no_workspace", main: null, durationMs: null },
   connected: false,
   cursor: { line: 1, column: 1 },

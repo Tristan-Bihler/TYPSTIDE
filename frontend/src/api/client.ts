@@ -8,11 +8,13 @@ import type {
   FileContent,
   GrammarOverview,
   GrammarSettings,
+  OpenTabs,
   Problem,
   ReviewRequest,
   ReviewResult,
   Snippet,
   Tree,
+  UiSettings,
   WorkspaceIndex,
   WorkspaceInfo,
 } from "./types";
@@ -118,6 +120,10 @@ export const api = {
   setAiSettings: (settings: AISettings): Promise<AIOverview> => request("PUT", "/api/ai/settings", settings),
   review: (body: ReviewRequest, signal: AbortSignal): Promise<ReviewResult> =>
     request("POST", "/api/review", body, signal),
+  uiSettings: (): Promise<UiSettings> => request("GET", "/api/settings/ui"),
+  saveUiSettings: (settings: UiSettings): Promise<UiSettings> => request("PUT", "/api/settings/ui", settings),
+  openTabs: (): Promise<OpenTabs> => request("GET", "/api/workspace/tabs"),
+  saveOpenTabs: (tabs: OpenTabs): Promise<OpenTabs> => request("PUT", "/api/workspace/tabs", tabs),
   grammar: (): Promise<GrammarOverview> => request("GET", "/api/grammar"),
   installGrammar: (): Promise<GrammarOverview> => request("POST", "/api/grammar/install"),
   setGrammarLanguage: (language: GrammarSettings["language"]): Promise<GrammarOverview> =>

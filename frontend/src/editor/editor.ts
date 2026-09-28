@@ -4,6 +4,7 @@
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { bracketMatching, indentOnInput, syntaxHighlighting } from "@codemirror/language";
 import { lintGutter, setDiagnostics, type Diagnostic } from "@codemirror/lint";
+import { highlightSelectionMatches, openSearchPanel, search, searchKeymap } from "@codemirror/search";
 import { Compartment, EditorSelection, EditorState, type TransactionSpec } from "@codemirror/state";
 import {
   drawSelection,
@@ -35,6 +36,28 @@ export interface EditorCallbacks {
   onIgnore(path: string, suggestion: Suggestion): void;
   /** "Add to dictionary" on a spelling finding. */
   onAddWord(suggestion: Suggestion): void;
+}
+
+/** Labels of CodeMirror's find & replace panel, in the app's sentence case. */
+const SEARCH_PHRASES: Record<string, string> = {
+  Find: "Find",
+  Replace: "Replace with",
+  next: "Next",
+  previous: "Previous",
+  all: "Select all",
+  "match case": "Match case",
+  regexp: "Regex",
+  "by word": "Whole word",
+  replace: "Replace",
+  "replace all": "Replace all",
+  close: "Close",
+};
+
+/** Find & replace panel with the cursor in the "replace" field (Ctrl+H). */
+function openReplace(view: EditorView): boolean {
+  openSearchPanel(view);
+  view.dom.querySelector<HTMLInputElement>(".cm-search input[name=replace]")?.focus();
+  return true;
 }
 
 /** Convert 1-based line/column to a document offset, clamped to the document. */
@@ -88,6 +111,9 @@ export class EditorPane {
         typstLanguage,
         syntaxHighlighting(typstHighlight),
         lintGutter(),
+        search({ top: true }),
+        EditorState.phrases.of(SEARCH_PHRASES),
+        highlightSelectionMatches(),
         suggestionLayer({
           ignore: (suggestion) => {
             if (this.activePath !== null) this.callbacks.onIgnore(this.activePath, suggestion);
@@ -100,6 +126,8 @@ export class EditorPane {
         keymap.of([
           { key: "Mod-s", preventDefault: true, run: () => (this.callbacks.onSave(), true) },
           { key: "Mod-Shift-k", preventDefault: true, run: () => (this.callbacks.onReview(), true) },
+          { key: "Mod-h", preventDefault: true, run: openReplace },
+          ...searchKeymap,
           ...defaultKeymap,
           ...historyKeymap,
           indentWithTab,
@@ -211,6 +239,25 @@ export class EditorPane {
     }
     const state = this.states.get(path);
     if (state !== undefined) this.states.set(path, state.update({ effects }).state);
+  }
+
+  /** Cursor offset of an open file, or null if it is not open. */
+  cursor(path: string): number | null {
+    const state = path === this.activePath ? this.view.state : this.states.get(path);
+    return state?.selection.main.head ?? null;
+  }
+
+  /** Put the cursor of an open file at `offset` (clamped); scrolls when it is active. */
+  setCursor(path: string, offset: number): void {
+    const state = path === this.activePath ? this.view.state : this.states.get(path);
+    if (state === undefined) return;
+    const head = Math.min(Math.max(offset, 0), state.doc.length);
+    const selection = EditorSelection.cursor(head);
+    if (path === this.activePath) {
+      this.view.dispatch({ selection, effects: EditorView.scrollIntoView(head, { y: "center" }) });
+    } else {
+      this.states.set(path, state.update({ selection }).state);
+    }
   }
 
   /** The text of an open file (the editor's current state). */

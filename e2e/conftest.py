@@ -157,6 +157,14 @@ def page(browser: Browser, app_url: str, workspace: Path) -> Iterator[Page]:
         f"{app_url}/api/ai/settings", data={"local_model": None, "claude_model": None}
     )
     context.request.put(f"{app_url}/api/grammar/settings", data={"language": "de-DE"})
+    # Autosave off (tests look at unsaved changes), theme and tabs back to defaults.
+    ui = {
+        "theme": "system",
+        "autosave": False,
+        "autosave_delay_ms": 2000,
+        "preview_follows_cursor": True,
+    }
+    context.request.put(f"{app_url}/api/settings/ui", data=ui)
     page.goto(app_url)
     page.get_by_role("button", name="Open folder", exact=True).first.click()
     picker = page.locator(".folder-picker")

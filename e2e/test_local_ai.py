@@ -6,6 +6,8 @@ from pathlib import Path
 
 from playwright.sync_api import Locator, Page, expect
 
+from e2e.ui_helpers import expand_folder
+
 UNTOUCHED = "Dieser Absatz bleibt, wie er ist, weil er hat keine Zeit für Änderungen."
 CHAPTER = f"== Einleitung\n\n{UNTOUCHED}\n\nDer zweite Absatz wird gleich bearbeitet."
 ADDED = " Das geht nicht, weil er hat keine Zeit dafür."
@@ -19,7 +21,7 @@ def sent(log: Path) -> list[str]:
 
 def open_chapter(page: Page, workspace: Path) -> None:
     (workspace / "kapitel" / "01-einleitung.typ").write_text(CHAPTER, encoding="utf-8")
-    page.get_by_role("treeitem", name="kapitel").click()
+    expand_folder(page, "kapitel")
     page.get_by_role("treeitem", name="01-einleitung.typ").click()
 
 

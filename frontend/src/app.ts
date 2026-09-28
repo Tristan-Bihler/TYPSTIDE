@@ -16,6 +16,7 @@ import { initialState, isDirty, Store, type AppState, type Language, type OpenDo
 import { mountTopbar } from "./topbar/fileActions";
 import { mountInsertToolbar } from "./topbar/insertToolbar";
 import { reviewBlocker, reviewSelection } from "./review/review";
+import { applyTheme, openSettings } from "./settings/dialog";
 import { ignoreKey } from "./suggestions/layer";
 import { suggestionProblems } from "./suggestions/problems";
 import { showContextMenu } from "./ui/contextMenu";
@@ -25,6 +26,8 @@ import { basename } from "./ui/dom";
 // Keep in sync with [timing] in config.toml.
 const DOC_CHANGED_DEBOUNCE_MS = 300;
 const TYPING_PAUSED_MS = 1500;
+const SAVE_TABS_MS = 1000;
+const SAVED_NOTICE_MS = 2000;
 
 interface Checked {
   content: string;
@@ -47,6 +50,14 @@ export class App implements Actions {
   private readonly checked = new Map<string, Map<Suggestion["source"], Checked>>();
   /** Per file: sends typing_paused after a pause (local AI check). */
   private readonly pauseTimers = new Map<string, number>();
+  /** Per file: autosave after the configured delay. */
+  private readonly autosaveTimers = new Map<string, number>();
+  /** Files whose autosave failed: paused until they are saved by hand. */
+  private readonly autosaveBlocked = new Set<string>();
+  /** Open tabs are remembered only after the saved ones were restored. */
+  private tabsRestored = false;
+  private saveTabsTimer = 0;
+  private noticeTimer = 0;
 
   constructor(root: HTMLElement) {
     const shell = buildShell(root);
@@ -86,6 +97,16 @@ export class App implements Actions {
         event.preventDefault();
         void this.saveAll();
       }
+      if ((event.ctrlKey || event.metaKey) && event.key === ",") {
+        event.preventDefault();
+        this.openSettings();
+      }
+    });
+    // Remember the open tabs (and cursors) of this folder for the next start.
+    this.store.subscribe((state, previous) => {
+      if (state.docs.length !== previous.docs.length || state.active !== previous.active || state.cursor !== previous.cursor) {
+        this.scheduleSaveTabs();
+      }
     });
     window.addEventListener("beforeunload", (event) => {
       if (this.store.get().docs.some(isDirty)) event.preventDefault();
@@ -124,7 +145,20 @@ export class App implements Actions {
     return Object.fromEntries(this.store.get().docs.filter(isDirty).map((d) => [d.path, d.content]));
   }
 
+  openSettings(): void {
+    openSettings({ store: this.store, actions: this });
+  }
+
   start(): void {
+    api
+      .uiSettings()
+      .then((ui) => {
+        this.store.set({ ui });
+        applyTheme(ui.theme);
+      })
+      .catch(() => {
+        // Defaults stay (theme follows the system).
+      });
     this.live.connect();
     api
       .grammar()
@@ -144,6 +178,7 @@ export class App implements Actions {
         if (message.reopened && otherFolder) this.resetDocs();
         this.store.set({ workspace: message.workspace });
         void this.reloadTree();
+        if (message.reopened && otherFolder && message.workspace !== null) void this.restoreTabs();
         break;
       }
       case "preview_pages":
@@ -163,6 +198,9 @@ export class App implements Actions {
         break;
       case "checker_status":
         this.store.set({ checker: message.status });
+        break;
+      case "word_count":
+        this.store.set({ wordCount: message });
         break;
       case "local_check_status":
         this.store.set({ localPending: message.pending });
@@ -267,6 +305,7 @@ export class App implements Actions {
       path,
       window.setTimeout(() => this.live.send({ type: "doc_changed", path, content, version }), DOC_CHANGED_DEBOUNCE_MS),
     );
+    this.scheduleAutosave(path);
     // After a longer pause the local AI may check the edited paragraphs (backend decides).
     window.clearTimeout(this.pauseTimers.get(path));
     this.pauseTimers.set(
@@ -280,9 +319,13 @@ export class App implements Actions {
   }
 
   private resetDocs(): void {
-    for (const timer of [...this.timers.values(), ...this.pauseTimers.values()]) window.clearTimeout(timer);
+    const timers = [...this.timers.values(), ...this.pauseTimers.values(), ...this.autosaveTimers.values()];
+    for (const timer of timers) window.clearTimeout(timer);
     this.timers.clear();
     this.pauseTimers.clear();
+    this.autosaveTimers.clear();
+    this.autosaveBlocked.clear();
+    this.tabsRestored = false;
     this.editor.closeAll();
     this.preview.clear();
     this.ignored.clear();
@@ -317,6 +360,9 @@ export class App implements Actions {
     this.timers.delete(path);
     window.clearTimeout(this.pauseTimers.get(path));
     this.pauseTimers.delete(path);
+    window.clearTimeout(this.autosaveTimers.get(path));
+    this.autosaveTimers.delete(path);
+    this.autosaveBlocked.delete(path);
     this.live.send({ type: "doc_closed", path });
     this.editor.close(path);
     this.ignored.delete(path);
@@ -355,6 +401,7 @@ export class App implements Actions {
     try {
       await api.saveFile(doc.path, doc.content);
       this.updateDoc(doc.path, { saved: doc.content });
+      this.autosaveBlocked.delete(doc.path);
       return true;
     } catch (error) {
       await showMessage(`Could not save ${basename(doc.path)}`, errorText(error));
@@ -366,6 +413,65 @@ export class App implements Actions {
     for (const doc of this.store.get().docs.filter(isDirty)) {
       if (!(await this.save(doc))) return;
     }
+  }
+
+  // --- autosave --------------------------------------------------------------------
+
+  private scheduleAutosave(path: string): void {
+    window.clearTimeout(this.autosaveTimers.get(path));
+    const { ui } = this.store.get();
+    if (!ui.autosave || this.autosaveBlocked.has(path)) return;
+    this.autosaveTimers.set(path, window.setTimeout(() => void this.autosave(path), ui.autosave_delay_ms));
+  }
+
+  private async autosave(path: string): Promise<void> {
+    this.autosaveTimers.delete(path);
+    const doc = this.store.get().docs.find((d) => d.path === path);
+    if (doc === undefined || !isDirty(doc) || !this.store.get().ui.autosave) return;
+    try {
+      await api.saveFile(doc.path, doc.content);
+    } catch (error) {
+      // Tell once, then stop trying for this file until it is saved by hand (Ctrl+S).
+      this.autosaveBlocked.add(path);
+      await showMessage(
+        `Could not save ${basename(path)} automatically`,
+        `${errorText(error)} Automatic saving is paused for this file; press Ctrl+S to try again.`,
+      );
+      return;
+    }
+    this.updateDoc(path, { saved: doc.content });
+    this.store.set({ saveNotice: "saved" });
+    window.clearTimeout(this.noticeTimer);
+    this.noticeTimer = window.setTimeout(() => this.store.set({ saveNotice: null }), SAVED_NOTICE_MS);
+  }
+
+  // --- remembered tabs -------------------------------------------------------------
+
+  private async restoreTabs(): Promise<void> {
+    try {
+      const saved = await api.openTabs();
+      for (const tab of saved.tabs) {
+        await this.openDoc(tab.path);
+        this.editor.setCursor(tab.path, tab.cursor);
+      }
+      if (saved.active !== null) this.activate(saved.active);
+    } catch {
+      // Nothing to restore (or the folder was closed meanwhile).
+    } finally {
+      this.tabsRestored = true;
+    }
+  }
+
+  private scheduleSaveTabs(): void {
+    if (!this.tabsRestored || this.store.get().workspace === null) return;
+    window.clearTimeout(this.saveTabsTimer);
+    this.saveTabsTimer = window.setTimeout(() => {
+      const { docs, active } = this.store.get();
+      const tabs = docs.map((d) => ({ path: d.path, cursor: this.editor.cursor(d.path) ?? 0 }));
+      api.saveOpenTabs({ tabs, active }).catch(() => {
+        // Not important enough to interrupt the user.
+      });
+    }, SAVE_TABS_MS);
   }
 
   // --- workspace -------------------------------------------------------------------

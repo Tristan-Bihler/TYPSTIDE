@@ -10,6 +10,7 @@ const SERVER_TYPES = new Set([
   "suggestions",
   "checker_status",
   "local_check_status",
+  "word_count",
 ]);
 
 export function parseServerMessage(raw: string): ServerMessage | null {

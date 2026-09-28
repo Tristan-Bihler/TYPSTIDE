@@ -75,7 +75,30 @@ export type ServerMessage =
   | { type: "workspace_changed"; workspace: WorkspaceInfo | null; reopened: boolean }
   | SuggestionsMessage
   | { type: "checker_status"; status: CheckerStatus }
-  | { type: "local_check_status"; pending: number };
+  | { type: "local_check_status"; pending: number }
+  | WordCount;
+
+export interface WordCount {
+  type: "word_count";
+  total: number; // main file + every included chapter
+  files: Record<string, number>;
+}
+
+// --- look and editor behaviour ---------------------------------------------------------
+
+export type Theme = "system" | "light" | "dark";
+
+export interface UiSettings {
+  theme: Theme;
+  autosave: boolean;
+  autosave_delay_ms: number;
+  preview_follows_cursor: boolean;
+}
+
+export interface OpenTabs {
+  tabs: { path: string; cursor: number }[];
+  active: string | null;
+}
 
 export interface SuggestionsMessage {
   type: "suggestions";

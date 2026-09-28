@@ -18,9 +18,11 @@ export default defineConfig({
   // the page, which closes any dialog the user already opened.
   optimizeDeps: {
     include: [
+      "@codemirror/autocomplete",
       "@codemirror/commands",
       "@codemirror/language",
       "@codemirror/lint",
+      "@codemirror/search",
       "@codemirror/state",
       "@codemirror/view",
       "@lezer/highlight",

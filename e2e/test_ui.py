@@ -5,9 +5,11 @@ from pathlib import Path
 
 from playwright.sync_api import Page, expect
 
+from e2e.ui_helpers import expand_folder
+
 
 def open_chapter(page: Page) -> None:
-    page.get_by_role("treeitem", name="kapitel").click()
+    expand_folder(page, "kapitel")
     page.get_by_role("treeitem", name="01-einleitung.typ").click()
     expect(page.get_by_role("tab", name="01-einleitung.typ")).to_have_attribute(
         "aria-selected", "true"
@@ -90,7 +92,7 @@ def test_new_file_from_top_bar(page: Page, workspace: Path) -> None:
 
 
 def test_rename_and_delete_from_context_menu(page: Page, workspace: Path) -> None:
-    page.get_by_role("treeitem", name="kapitel").click()
+    expand_folder(page, "kapitel")
     page.get_by_role("treeitem", name="01-einleitung.typ").click(button="right")
     page.get_by_role("menuitem", name="Rename…").click()
     page.locator("dialog.dialog").get_by_label("New name").fill("01-intro.typ")

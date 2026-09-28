@@ -2,9 +2,11 @@
 
 from playwright.sync_api import Locator, Page, expect
 
+from e2e.ui_helpers import expand_folder
+
 
 def open_chapter_at_end(page: Page) -> None:
-    page.get_by_role("treeitem", name="kapitel").click()
+    expand_folder(page, "kapitel")
     page.get_by_role("treeitem", name="01-einleitung.typ").click()
     page.locator(".cm-content").click()
     page.keyboard.press("Control+End")

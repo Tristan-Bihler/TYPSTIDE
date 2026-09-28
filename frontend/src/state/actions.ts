@@ -20,6 +20,7 @@ export interface Actions {
   jumpTo(problem: Problem): Promise<void>;
   setLanguage(language: Language): void;
   installGrammar(): Promise<void>;
+  openSettings(): void;
 }
 
 /** File types the editor opens (mirrors TEXT_EXTENSIONS in services/workspace.py). */
