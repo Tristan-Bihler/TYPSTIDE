@@ -744,9 +744,41 @@ select {
 }
 
 .page {
+  position: relative;
   flex: none;
   background: #ffffff;
   box-shadow: var(--page-shadow);
+  cursor: pointer;
+}
+
+/* Where the cursor's paragraph is: a short bar in the left margin that fades out. */
+.preview-mark {
+  position: absolute;
+  left: 10px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--accent);
+  pointer-events: none;
+}
+
+.preview-mark.fading {
+  animation: preview-mark 1600ms ease-in forwards;
+}
+
+@keyframes preview-mark {
+  0%,
+  60% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .preview-mark.fading {
+    animation: none;
+  }
 }
 
 .page img {

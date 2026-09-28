@@ -4,10 +4,13 @@
 import type { PageUpdate } from "../api/types";
 import type { AppState, Store } from "../state/store";
 import { el, storage } from "../ui/dom";
+import { clickToPt } from "./follow";
 
 const PT_TO_PX = 96 / 72;
 const ZOOM_KEY = "preview.zoom";
 const ZOOM_STEPS = [0.5, 0.67, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3];
+const MARK_HEIGHT_PT = 16;
+const MARK_MS = 1600;
 
 interface Page {
   hash: string;
@@ -37,8 +40,11 @@ export class PreviewPane {
   private readonly message: HTMLElement;
   private readonly banner: HTMLElement;
   private readonly zoomLabel: HTMLElement;
+  private readonly mark: HTMLElement;
+  private markTimer = 0;
 
-  constructor(host: HTMLElement, store: Store<AppState>) {
+  /** `onClick(page, y)`: a click on page `page` (1-based) at `y` pt from its top. */
+  constructor(host: HTMLElement, store: Store<AppState>, onClick: (page: number, y: number) => void) {
     const stored = storage.get(ZOOM_KEY);
     this.zoom = stored === null || stored === "fit" || !Number(stored) ? "fit" : Number(stored);
 
@@ -52,7 +58,15 @@ export class PreviewPane {
 
     this.banner = el("div", { class: "preview-banner", role: "status", hidden: "" });
     this.message = el("div", { class: "preview-message" });
-    this.pagesHost = el("div", { class: "pages" });
+    this.pagesHost = el("div", { class: "pages", title: "Click to show this place in the source" });
+    this.pagesHost.addEventListener("click", (event) => {
+      const index = this.pages.findIndex((page) => page.node.contains(event.target as Node));
+      const page = this.pages[index];
+      if (page === undefined || window.getSelection()?.type === "Range") return;
+      const rect = page.node.getBoundingClientRect();
+      onClick(index + 1, clickToPt(event.clientY, rect, page.heightPx / PT_TO_PX));
+    });
+    this.mark = el("div", { class: "preview-mark", "aria-hidden": "true", hidden: "" });
     this.desk = el("div", { class: "desk" }, this.banner, this.message, this.pagesHost);
     host.append(el("div", { class: "preview-toolbar" }, zoomOut, this.zoomLabel, zoomIn, fit), this.desk);
 
@@ -94,6 +108,32 @@ export class PreviewPane {
 
   clear(): void {
     this.apply([]);
+  }
+
+  /** Show `y` pt on page `page` (1-based): scroll only if it is off-screen, then mark it
+   * briefly at the page margin. */
+  reveal(page: number, y: number): void {
+    const target = this.pages[page - 1];
+    if (target === undefined) return;
+    const pageRect = target.node.getBoundingClientRect();
+    const deskRect = this.desk.getBoundingClientRect();
+    const scale = pageRect.height / (target.heightPx / PT_TO_PX);
+    const top = pageRect.top - deskRect.top + this.desk.scrollTop + y * scale;
+    const height = MARK_HEIGHT_PT * scale;
+    const visible = top >= this.desk.scrollTop + 8 && top + height <= this.desk.scrollTop + this.desk.clientHeight - 8;
+    if (!visible) {
+      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      this.desk.scrollTo({ top: Math.max(top - this.desk.clientHeight / 3, 0), behavior: reduced ? "auto" : "smooth" });
+    }
+    this.mark.style.top = `${Math.round(y * scale)}px`;
+    this.mark.style.height = `${Math.max(Math.round(height), 8)}px`;
+    target.node.append(this.mark);
+    this.mark.hidden = false;
+    this.mark.classList.remove("fading");
+    void this.mark.offsetWidth; // restart the fade
+    this.mark.classList.add("fading");
+    window.clearTimeout(this.markTimer);
+    this.markTimer = window.setTimeout(() => (this.mark.hidden = true), MARK_MS);
   }
 
   private renderState(state: AppState): void {

@@ -8,6 +8,7 @@ import { pickFolder } from "./filetree/folderPicker";
 import { mountFileTree } from "./filetree/tree";
 import { buildShell } from "./layout/layout";
 import { mountStatusbar } from "./layout/statusbar";
+import { blockStart } from "./preview/follow";
 import { PreviewPane } from "./preview/preview";
 import { mountProblems } from "./problems/panel";
 import { isTextFile, type Actions, type EntryKind } from "./state/actions";
@@ -29,6 +30,7 @@ const DOC_CHANGED_DEBOUNCE_MS = 300;
 const TYPING_PAUSED_MS = 1500;
 const SAVE_TABS_MS = 1000;
 const SAVED_NOTICE_MS = 2000;
+const FOLLOW_CURSOR_MS = 300;
 
 interface Checked {
   content: string;
@@ -59,6 +61,9 @@ export class App implements Actions {
   private tabsRestored = false;
   private saveTabsTimer = 0;
   private noticeTimer = 0;
+  private followTimer = 0;
+  /** "path:offset" of the block the preview last followed (resent only when it changes). */
+  private followed = "";
 
   constructor(root: HTMLElement) {
     const shell = buildShell(root);
@@ -66,10 +71,13 @@ export class App implements Actions {
     mountFileTree(shell.files, this.store, this);
     mountProblems(shell.problems, this.store, this);
     mountStatusbar(shell.statusbar, this.store, this);
-    this.preview = new PreviewPane(shell.preview, this.store);
+    this.preview = new PreviewPane(shell.preview, this.store, (page, y) => this.live.send({ type: "preview_click", page, y }));
     this.editor = new EditorPane(shell.editor, this.store, {
       onChange: (path, content) => this.contentChanged(path, content),
-      onCursor: (line, column) => this.store.set({ cursor: { line, column } }),
+      onCursor: (line, column) => {
+        this.store.set({ cursor: { line, column } });
+        this.scheduleFollow();
+      },
       onSave: () => void this.saveAll(),
       onActivate: (path) => this.activate(path),
       onClose: (path) => void this.closeDoc(path),
@@ -206,7 +214,44 @@ export class App implements Actions {
       case "local_check_status":
         this.store.set({ localPending: message.pending });
         break;
+      case "jump":
+        void this.showSource(message.path, message.offset);
+        break;
+      case "preview_position":
+        // Only if the cursor is still in that block (answers can arrive late).
+        if (this.followed === this.followKey(message.path, message.offset)) this.preview.reveal(message.page, message.y);
+        break;
     }
+  }
+
+  // --- click-to-jump -----------------------------------------------------------------
+
+  /** A click in the preview: open the file and put the cursor there. */
+  private async showSource(path: string, offset: number): Promise<void> {
+    if (!isTextFile(path)) return;
+    await this.openDoc(path);
+    this.editor.setCursor(path, offset);
+    this.followed = this.followKey(path, offset); // it is on screen already: don't follow back
+  }
+
+  private followKey(path: string, offset: number): string {
+    const doc = this.store.get().docs.find((d) => d.path === path);
+    return doc === undefined ? "" : `${path}:${blockStart(doc.content, offset)}`;
+  }
+
+  /** After the cursor settles in another paragraph, ask where it is in the preview. */
+  private scheduleFollow(): void {
+    window.clearTimeout(this.followTimer);
+    if (!this.store.get().ui.preview_follows_cursor) return;
+    this.followTimer = window.setTimeout(() => {
+      const { active } = this.store.get();
+      const offset = active === null ? null : this.editor.cursor(active);
+      if (active === null || offset === null || !active.endsWith(".typ")) return;
+      const key = this.followKey(active, offset);
+      if (key === this.followed) return;
+      this.followed = key;
+      this.live.send({ type: "cursor_moved", path: active, offset });
+    }, FOLLOW_CURSOR_MS);
   }
 
   // --- spelling and grammar ----------------------------------------------------------

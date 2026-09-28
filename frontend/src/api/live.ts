@@ -11,6 +11,8 @@ const SERVER_TYPES = new Set([
   "checker_status",
   "local_check_status",
   "word_count",
+  "jump",
+  "preview_position",
 ]);
 
 export function parseServerMessage(raw: string): ServerMessage | null {

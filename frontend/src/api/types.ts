@@ -50,6 +50,8 @@ export type ClientMessage =
   | { type: "doc_changed"; path: string; content: string; version: number }
   | { type: "doc_opened"; path: string; content: string; version: number }
   | { type: "typing_paused"; path: string; version: number; cursor: number }
+  | { type: "preview_click"; page: number; y: number }
+  | { type: "cursor_moved"; path: string; offset: number }
   | { type: "doc_closed"; path: string }
   | { type: "refresh" };
 
@@ -76,6 +78,8 @@ export type ServerMessage =
   | SuggestionsMessage
   | { type: "checker_status"; status: CheckerStatus }
   | { type: "local_check_status"; pending: number }
+  | { type: "jump"; path: string; offset: number } // answer to preview_click (UTF-16 offset)
+  | { type: "preview_position"; path: string; offset: number; page: number; y: number }
   | WordCount;
 
 export interface WordCount {
