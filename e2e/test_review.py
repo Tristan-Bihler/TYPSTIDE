@@ -24,10 +24,7 @@ def test_selector_defaults_to_none_and_lists_claude_models(page: Page) -> None:
     expect(claude).to_be_enabled()
     expect(claude.locator("option")).to_have_text(["None", "sonnet", "opus", "haiku"])
     local = page.get_by_label("Local AI", exact=True)
-    expect(local).to_be_disabled()
-    expect(local).to_have_attribute(
-        "title", "Local AI (Ollama) comes in a later version of typst-writer."
-    )
+    expect(local).to_have_value("")  # the slots are independent: no fallback between them
 
 
 def test_review_needs_a_model_and_editor_still_works(page: Page) -> None:

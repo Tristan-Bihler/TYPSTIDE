@@ -29,7 +29,7 @@ def test_layout_shows_workspace_and_main_badge(page: Page) -> None:
     expect(page.get_by_role("treeitem", name="main.typ")).to_contain_text("main")
     expect(page.locator(".compile-status")).to_contain_text("Compiled in")
     ai = page.get_by_role("group", name="AI assistance")
-    expect(ai.get_by_label("Local AI")).to_be_disabled()
+    expect(ai.get_by_label("Local AI")).to_have_value("")
     expect(ai.get_by_label("Claude")).to_have_value("")
 
 

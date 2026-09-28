@@ -25,8 +25,21 @@ def _port_busy(port: int) -> bool:
         return s.connect_ex(("127.0.0.1", port)) == 0
 
 
+def _free_port() -> int:
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        port: int = s.getsockname()[1]
+    return port
+
+
 @pytest.fixture(scope="session")
-def app_url(tmp_path_factory: pytest.TempPathFactory) -> Iterator[str]:
+def ollama_log(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Paragraphs the fake Ollama received (one JSON string per line)."""
+    return tmp_path_factory.mktemp("ollama") / "paragraphs.jsonl"
+
+
+@pytest.fixture(scope="session")
+def app_url(tmp_path_factory: pytest.TempPathFactory, ollama_log: Path) -> Iterator[str]:
     for port in (8000, 5173):
         if _port_busy(port):
             pytest.fail(f"Port {port} is in use. Stop `python scripts/dev.py` first.")
@@ -50,8 +63,20 @@ def app_url(tmp_path_factory: pytest.TempPathFactory) -> Iterator[str]:
     run = f"runpy.run_path({str(fake_ltex)!r}, run_name='__main__')"
     java.write_text(f"#!{sys.executable}\nimport runpy\n{run}\n", encoding="utf-8")
     java.chmod(0o755)
+    # A fake Ollama (the local AI) on a free port, and a config pointing at it.
+    ollama_port = _free_port()
+    fake_ollama = ROOT / "backend" / "tests" / "fakes" / "ollama.py"
+    ollama = subprocess.Popen([sys.executable, str(fake_ollama), str(ollama_port), str(ollama_log)])
+    config = tmp_path_factory.mktemp("config") / "config.toml"
+    config.write_text(
+        (ROOT / "config.toml")
+        .read_text(encoding="utf-8")
+        .replace("http://127.0.0.1:11434", f"http://127.0.0.1:{ollama_port}"),
+        encoding="utf-8",
+    )
     env = {
         **os.environ,
+        "TYPST_WRITER_CONFIG": str(config),
         "TYPST_WRITER_HOME": str(tmp_path_factory.mktemp("app-home")),
         "TYPST_WRITER_LTEX_DIR": str(ltex),
         "PATH": f"{fake_bin}{os.pathsep}{os.environ.get('PATH', '')}",
@@ -77,7 +102,7 @@ def app_url(tmp_path_factory: pytest.TempPathFactory) -> Iterator[str]:
             time.sleep(0.2)
         yield BASE_URL
     finally:
-        for process in (frontend, backend):
+        for process in (frontend, backend, ollama):
             process.terminate()
             process.wait(timeout=10)
 
