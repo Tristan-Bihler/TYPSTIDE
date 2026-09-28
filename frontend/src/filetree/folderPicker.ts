@@ -19,14 +19,22 @@ export function pickFolder(start: string | null): Promise<string | null> {
     const cancel = el("button", { type: "button", class: "button" }, "Cancel");
     const open = el("button", { type: "button", class: "button primary" }, "Open this folder");
 
+    // Each load or keystroke bumps this, so a slow listing never overwrites newer input.
+    let generation = 0;
+    input.addEventListener("input", () => generation++);
+
     const load = async (path: string | null): Promise<void> => {
+      const mine = ++generation;
+      let result: DirListing;
       try {
-        listing = await api.browse(path);
-        error.textContent = "";
+        result = await api.browse(path);
       } catch (e: unknown) {
-        error.textContent = e instanceof Error ? e.message : String(e);
+        if (mine === generation) error.textContent = e instanceof Error ? e.message : String(e);
         return;
       }
+      if (mine !== generation) return;
+      listing = result;
+      error.textContent = "";
       input.value = listing.path;
       up.disabled = listing.parent === null;
       list.replaceChildren();

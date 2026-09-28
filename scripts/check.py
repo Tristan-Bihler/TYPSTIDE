@@ -1,6 +1,9 @@
 """Run every lint, type check and test suite. Exits non-zero if any step fails.
 
-Usage:  python scripts/check.py
+Usage:  python scripts/check.py          lint, types, unit and API tests
+        python scripts/check.py --e2e    also the Playwright UI tests (needs Chromium via
+                                         `uv run --project backend playwright install chromium`
+                                         and free ports 8000/5173, so stop dev.py first)
 """
 
 import shutil
@@ -38,6 +41,7 @@ def main() -> int:
                 "backend/src",
                 "backend/tests",
                 "scripts",
+                "e2e",
             ],
             ROOT,
         ),
@@ -45,6 +49,8 @@ def main() -> int:
         ("tsc", [npm, "run", "typecheck"], frontend),
         ("vitest", [npm, "test"], frontend),
     ]
+    if "--e2e" in sys.argv[1:]:
+        steps.append(("playwright", [uv, "run", *backend, "pytest", "-q", "e2e"], ROOT))
 
     failed: list[str] = []
     for name, cmd, cwd in steps:

@@ -11,5 +11,6 @@ known-local-folder = ["helpers"]
 
 [lint.per-file-ignores]
 "backend/tests/**" = ["S101"]
+"e2e/**" = ["S101", "S603"]
 # Dev scripts only start fixed, known executables with argument lists (no shell).
 "scripts/**" = ["S603"]
