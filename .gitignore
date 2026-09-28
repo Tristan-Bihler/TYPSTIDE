@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# Node
+node_modules/
+dist/
+
+# Local settings and caches (never commit)
+.typst-writer/
+*.local.toml
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
