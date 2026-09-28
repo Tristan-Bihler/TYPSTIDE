@@ -12,7 +12,7 @@ from dataclasses import dataclass
 
 from pydantic import BaseModel, ConfigDict
 
-from typst_writer.domain.models import Suggestion
+from typst_writer.domain.models import Suggestion, SuggestionSource
 
 # Raw blocks, inline raw, math, code/function calls, references and labels.
 _MARKUP_TOKEN = re.compile(
@@ -89,19 +89,27 @@ def rebuild(selection: str, kept: list[LocatedChange]) -> str:
 
 
 def to_suggestions(
-    selection: str, selection_start: int, kept: list[LocatedChange]
+    selection: str,
+    selection_start: int,
+    kept: list[LocatedChange],
+    source: SuggestionSource = "claude",
 ) -> list[Suggestion]:
     """Suggestions with UTF-16 document offsets (selection_start is already UTF-16)."""
-    return [
-        Suggestion(
-            id=f"claude-{i}",
-            source="claude",
-            start=selection_start + utf16_len(selection[: located.start]),
-            end=selection_start + utf16_len(selection[: located.end]),
-            original=located.change.original,
-            replacement=located.change.replacement,
-            reason=located.change.reason,
-            category=located.change.category,
+    suggestions = []
+    for located in kept:
+        start = selection_start + utf16_len(selection[: located.start])
+        end = selection_start + utf16_len(selection[: located.end])
+        suggestions.append(
+            Suggestion(
+                id=f"{source}-{start}-{end}",
+                source=source,
+                start=start,
+                end=end,
+                original=located.change.original,
+                replacement=located.change.replacement,
+                reason=located.change.reason,
+                category=located.change.category,
+                fixes=[located.change.replacement],
+            )
         )
-        for i, located in enumerate(kept)
-    ]
+    return suggestions

@@ -10,6 +10,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 
 from typst_writer.adapters.claude_cli import ClaudeCliProvider
+from typst_writer.adapters.ollama import OllamaProvider
 from typst_writer.adapters.typst_py import TypstPyCompiler, typst_version
 from typst_writer.api import rest, websocket
 from typst_writer.api.deps import Services
@@ -21,6 +22,7 @@ from typst_writer.infra.state_store import StateStore
 from typst_writer.ports.compiler import CompileFailedError
 from typst_writer.services.compile import CompileService
 from typst_writer.services.grammar import GrammarService
+from typst_writer.services.local_check import LocalAI
 from typst_writer.services.review import ReviewService
 from typst_writer.services.settings import SettingsService
 from typst_writer.services.snippets import SnippetService
@@ -74,6 +76,7 @@ def create_app(config: AppConfig) -> FastAPI:
     hub = websocket.Hub(workspace)
     grammar = GrammarService(config, settings)
     grammar.subscribe(hub.checker_status)
+    ollama = OllamaProvider(config.ollama)
     services = Services(
         config=config,
         workspace=workspace,
@@ -81,10 +84,12 @@ def create_app(config: AppConfig) -> FastAPI:
         snippets=SnippetService(SNIPPETS_PATH),
         review=ReviewService(
             ClaudeCliProvider(config.claude.models, config.claude.timeout_seconds),
+            ollama,
             settings,
             config.limits.max_ai_text_chars,
         ),
         grammar=grammar,
+        local_ai=LocalAI(ollama, settings, config.ollama.max_paragraph_chars),
         hub=hub,
     )
 
@@ -93,6 +98,7 @@ def create_app(config: AppConfig) -> FastAPI:
         await grammar.startup()  # starts LTeX+ in the background if installed
         yield
         await grammar.shutdown()
+        await ollama.close()
 
     app = FastAPI(
         title="typst-writer", docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan

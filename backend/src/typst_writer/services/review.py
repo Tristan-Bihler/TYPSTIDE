@@ -1,9 +1,11 @@
 """AI slots and the on-demand selection review.
 
 The Claude slot drives the review; when it is None the NoneProvider answers (no changes),
-so this service never branches on "is AI enabled". The local slot (Ollama) follows in
-Phase 5 and has no hidden fallback to Claude.
+so this service never branches on "is AI enabled". The local slot (Ollama) drives the live
+check (services/local_check.py); there is no hidden fallback between the two.
 """
+
+import asyncio
 
 from pydantic import BaseModel
 
@@ -14,12 +16,6 @@ from typst_writer.domain.review import locate_changes, rebuild, to_suggestions
 from typst_writer.ports.ai import AIProvider, AIStatus
 from typst_writer.services.settings import SettingsService
 
-LOCAL_NOT_YET = AIStatus(
-    available=False,
-    reason="Local AI (Ollama) comes in a later version of typst-writer.",
-    models=[],
-)
-
 
 class AIOverview(BaseModel):
     local: AIStatus
@@ -28,19 +24,28 @@ class AIOverview(BaseModel):
 
 
 class ReviewService:
-    def __init__(self, claude: AIProvider, settings: SettingsService, max_chars: int) -> None:
+    def __init__(
+        self, claude: AIProvider, local: AIProvider, settings: SettingsService, max_chars: int
+    ) -> None:
         self._claude = claude
+        self._local = local
         self._settings = settings
         self._none = NoneProvider()
         self._max_chars = max_chars
 
     async def overview(self, refresh: bool = False) -> AIOverview:
-        claude = await self._claude.status(refresh=refresh)
-        return AIOverview(local=LOCAL_NOT_YET, claude=claude, settings=self._settings.get())
+        local, claude = await asyncio.gather(
+            self._local.status(refresh=refresh), self._claude.status(refresh=refresh)
+        )
+        return AIOverview(local=local, claude=claude, settings=self._settings.get())
 
     async def update_settings(self, new: AISettings) -> AIOverview:
         if new.local_model is not None:
-            raise AIUnavailableError(LOCAL_NOT_YET.reason)
+            status = await self._local.status(refresh=True)
+            if not status.available:
+                raise AIUnavailableError(status.reason)
+            if new.local_model not in status.models:
+                raise AIUnavailableError(f"Ollama has no model '{new.local_model}'.")
         if new.claude_model is not None:
             status = await self._claude.status()
             if not status.available:

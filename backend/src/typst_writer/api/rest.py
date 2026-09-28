@@ -183,7 +183,9 @@ async def ai_status(s: ServicesDep, refresh: bool = False) -> AIOverview:
 
 @router.put("/ai/settings")
 async def ai_settings(body: AISettings, s: ServicesDep) -> AIOverview:
-    return await s.review.update_settings(body)
+    overview = await s.review.update_settings(body)
+    s.hub.local_ai_changed()
+    return overview
 
 
 async def _unless_disconnected(

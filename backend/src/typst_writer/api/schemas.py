@@ -100,6 +100,15 @@ class DocOpened(BaseModel):
     version: int | None = None
 
 
+class TypingPaused(BaseModel):
+    """No typing for a moment: the local AI may check the edited paragraphs."""
+
+    type: Literal["typing_paused"]
+    path: str
+    version: int | None = None
+    cursor: int = Field(default=0, ge=0)  # UTF-16 offset of the cursor
+
+
 class DocClosed(BaseModel):
     type: Literal["doc_closed"]
     path: str
@@ -109,7 +118,9 @@ class Refresh(BaseModel):
     type: Literal["refresh"]
 
 
-ClientMessage = Annotated[DocChanged | DocOpened | DocClosed | Refresh, Field(discriminator="type")]
+ClientMessage = Annotated[
+    DocChanged | DocOpened | TypingPaused | DocClosed | Refresh, Field(discriminator="type")
+]
 
 
 # --- WebSocket: server -> client ---------------------------------------------------------
@@ -154,6 +165,13 @@ class SuggestionsMessage(BaseModel):
     version: int | None
     source: SuggestionSource
     suggestions: list[Suggestion]
+
+
+class LocalCheckStatus(BaseModel):
+    """How many paragraphs the local AI still has to check (0 = idle)."""
+
+    type: Literal["local_check_status"] = "local_check_status"
+    pending: int
 
 
 class CheckerStatusMessage(BaseModel):

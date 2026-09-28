@@ -10,6 +10,7 @@ import asyncio
 import contextlib
 import hashlib
 import logging
+from collections.abc import Coroutine
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, TypeAdapter, ValidationError
@@ -23,16 +24,19 @@ from typst_writer.api.schemas import (
     DocChanged,
     DocClosed,
     DocOpened,
+    LocalCheckStatus,
     PageUpdate,
     PreviewPages,
     ProblemsMessage,
     SuggestionsMessage,
+    TypingPaused,
     WorkspaceChanged,
 )
 from typst_writer.domain.errors import NoMainFileError, WorkspaceError
 from typst_writer.domain.models import Suggestion
 from typst_writer.ports.rule_checker import CheckerStatus
 from typst_writer.services.check_orchestrator import CheckOrchestrator
+from typst_writer.services.local_check import LocalCheck
 from typst_writer.services.workspace import WorkspaceService
 
 log = logging.getLogger(__name__)
@@ -52,6 +56,10 @@ class Session:
         self.checks = CheckOrchestrator(
             services.grammar, self._send_suggestions, services.config.limits.max_check_chars
         )
+        self.local = LocalCheck(
+            services.local_ai, self._send_local, self._send_local_status, self._read_saved
+        )
+        self._local_tasks: set[asyncio.Task[None]] = set()
 
     async def send(self, message: BaseModel) -> None:
         async with self._send_lock:
@@ -60,11 +68,36 @@ class Session:
     async def _send_suggestions(
         self, path: str, version: int | None, suggestions: list[Suggestion]
     ) -> None:
+        self.local.rule_findings(path, version, suggestions)
         message = SuggestionsMessage(
             path=path, version=version, source="rule", suggestions=suggestions
         )
         with contextlib.suppress(WebSocketDisconnect, RuntimeError):
             await self.send(message)
+
+    async def _send_local(
+        self, path: str, version: int | None, suggestions: list[Suggestion]
+    ) -> None:
+        message = SuggestionsMessage(
+            path=path, version=version, source="local_ai", suggestions=suggestions
+        )
+        with contextlib.suppress(WebSocketDisconnect, RuntimeError):
+            await self.send(message)
+
+    async def _send_local_status(self, pending: int) -> None:
+        with contextlib.suppress(WebSocketDisconnect, RuntimeError):
+            await self.send(LocalCheckStatus(pending=pending))
+
+    def _read_saved(self, path: str) -> str | None:
+        try:
+            return self._services.workspace.read_text(path)
+        except (WorkspaceError, OSError):
+            return None
+
+    def spawn(self, work: Coroutine[object, object, None]) -> None:
+        task = asyncio.create_task(work)
+        self._local_tasks.add(task)
+        task.add_done_callback(self._local_tasks.discard)
 
     def request_compile(self) -> None:
         self._wake.set()
@@ -73,6 +106,7 @@ class Session:
         self.overlays.clear()
         self._page_hashes = []
         self.checks.clear()
+        self.local.clear()
 
     async def compile_loop(self) -> None:
         while True:
@@ -135,15 +169,22 @@ class Session:
             case DocOpened(path=path, content=content, version=version):
                 if self._in_workspace(path):
                     self.checks.update(path, content, version)
+                    self.spawn(self.local.opened(path, content, version))
                 return  # opening a file does not change the preview
+            case TypingPaused(path=path, version=version, cursor=cursor):
+                if self._in_workspace(path):
+                    self.local.paused(path, version, cursor)
+                return
             case DocChanged(path=path, content=content, version=version):
                 if not self._in_workspace(path):
                     return
                 self.overlays[path] = content
                 self.checks.update(path, content, version)
+                self.local.changed(path, content, version)
             case DocClosed(path=path):
                 self.overlays.pop(path, None)
                 self.checks.close(path)
+                self.local.closed(path)
             case _:
                 pass  # refresh
         self.request_compile()
@@ -172,6 +213,12 @@ class Hub:
         """Language, dictionary or checker changed: check every open file again."""
         for session in list(self.sessions):
             session.checks.recheck_all()
+            session.spawn(session.local.refresh_all())
+
+    def local_ai_changed(self) -> None:
+        """The local model changed: show what the cache has for it (or clear)."""
+        for session in list(self.sessions):
+            session.spawn(session.local.refresh_all())
 
     @staticmethod
     async def _send_quietly(session: Session, message: BaseModel) -> None:
@@ -214,6 +261,7 @@ async def live(ws: WebSocket) -> None:
     finally:
         services.hub.sessions.discard(session)
         await session.checks.stop()
+        await session.local.stop()
         worker.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await worker

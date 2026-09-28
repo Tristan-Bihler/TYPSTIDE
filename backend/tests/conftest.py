@@ -1,4 +1,5 @@
 import os
+import socket
 import sys
 from collections.abc import Iterator
 from pathlib import Path
@@ -6,9 +7,11 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from typst_writer.config import load_config
+from typst_writer.config import CONFIG_ENV_VAR, load_config
 from typst_writer.infra.app_dirs import HOME_ENV_VAR
 from typst_writer.main import create_app
+
+from helpers import write_config
 
 
 @pytest.fixture(autouse=True)
@@ -38,6 +41,22 @@ def fake_claude(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ.get('PATH', '')}")
     monkeypatch.setenv("FAKE_CLAUDE_LOG", str(log))
     return log
+
+
+def _closed_port() -> int:
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        port: int = s.getsockname()[1]
+    return port  # nothing listens here once the socket is closed
+
+
+@pytest.fixture(autouse=True)
+def no_real_ollama(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Point the local AI at a closed port in every test: no test reaches a real Ollama
+    (tests that need one start the fake, see fakes/ollama.py)."""
+    path = write_config(tmp_path, f"http://127.0.0.1:{_closed_port()}")
+    monkeypatch.setenv(CONFIG_ENV_VAR, str(path))
+    return path
 
 
 @pytest.fixture

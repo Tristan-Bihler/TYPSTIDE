@@ -33,7 +33,7 @@ def test_defaults_are_none_and_claude_is_offered(client: TestClient) -> None:
         "models": ["sonnet", "opus", "haiku"],
     }
     assert status["local"]["available"] is False
-    assert "later version" in status["local"]["reason"]
+    assert "Ollama is not running" in status["local"]["reason"]
 
 
 def test_claude_unavailable_when_logged_out(

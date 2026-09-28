@@ -37,6 +37,17 @@ class TextPositions:
         """UTF-16 offset from the document start of a Python index."""
         return index if self._bmp_only else utf16_len(self.text[:index])
 
+    def index_of_utf16(self, offset: int) -> int:
+        """Python index of a UTF-16 document offset (clamped to the text)."""
+        if self._bmp_only:
+            return max(0, min(offset, len(self.text)))
+        units = 0
+        for i, c in enumerate(self.text):
+            if units >= offset:
+                return i
+            units += 2 if ord(c) > 0xFFFF else 1
+        return len(self.text)
+
     def line_column(self, index: int) -> tuple[int, int]:
         """1-based line and column (in characters) of a Python index."""
         line = bisect_right(self._line_starts, index) - 1

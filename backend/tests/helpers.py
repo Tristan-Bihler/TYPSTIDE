@@ -7,6 +7,8 @@ from typing import Any
 
 from starlette.testclient import WebSocketTestSession
 
+from typst_writer.config import DEFAULT_CONFIG_PATH
+
 FRONTEND_ORIGIN = "http://127.0.0.1:5173"
 WS_URL = "ws://127.0.0.1/ws"  # absolute: the test client would otherwise send Host: testserver
 
@@ -61,10 +63,26 @@ def make_fake_ltex_install(home: Path) -> Path:
     return home
 
 
-def receive_suggestions(ws: WebSocketTestSession, path: str, limit: int = 40) -> dict[str, Any]:
-    """The next `suggestions` message for `path`."""
+def receive_suggestions(
+    ws: WebSocketTestSession, path: str, source: str = "rule", limit: int = 40
+) -> dict[str, Any]:
+    """The next `suggestions` message for `path` from `source`."""
     for _ in range(limit):
         message: dict[str, Any] = ws.receive_json()
-        if message["type"] == "suggestions" and message["path"] == path:
+        if message["type"] == "suggestions" and (message["path"], message["source"]) == (
+            path,
+            source,
+        ):
             return message
     raise AssertionError(f"no suggestions for {path} within {limit} messages")
+
+
+def write_config(directory: Path, ollama_url: str) -> Path:
+    """A copy of config.toml with the local AI pointed at `ollama_url`."""
+    text = DEFAULT_CONFIG_PATH.read_text(encoding="utf-8").replace(
+        'base_url = "http://127.0.0.1:11434"', f'base_url = "{ollama_url}"'
+    )
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / "config.toml"
+    path.write_text(text, encoding="utf-8")
+    return path

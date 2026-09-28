@@ -83,6 +83,9 @@ def test_positions_handle_emoji_crlf_and_the_end() -> None:
     assert positions.index(1, 99) == text.index("\nx")  # clamped to the line end
     assert positions.index(9, 0) == len(text)
     assert positions.utf16_offset(3) == 4
+    assert positions.index_of_utf16(3) == 2  # right after the emoji
+    assert positions.index_of_utf16(4) == 3
+    assert positions.index_of_utf16(999) == len(text)
     assert positions.line_column(text.index("x")) == (3, 1)
 
 
