@@ -7,7 +7,7 @@ from typst_writer.ports.ai import AIStatus, ParagraphCheckRequest, ReviewDraft
 class NoneProvider:
     name = "none"
 
-    async def status(self) -> AIStatus:
+    async def status(self, refresh: bool = False) -> AIStatus:
         return AIStatus(available=True, reason="", models=[])
 
     async def check_paragraph(self, req: ParagraphCheckRequest, model: str) -> list[Suggestion]:

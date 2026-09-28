@@ -1,8 +1,12 @@
 """REST endpoints under `/api`."""
 
+import asyncio
+import contextlib
+from collections.abc import Coroutine
+from typing import Any
 from urllib.parse import quote
 
-from fastapi import APIRouter, Query, Response
+from fastapi import APIRouter, Query, Request, Response
 
 from typst_writer.adapters.typst_py import typst_version
 from typst_writer.api.deps import ServicesDep
@@ -20,10 +24,11 @@ from typst_writer.api.schemas import (
     SaveFileRequest,
     SetMainRequest,
 )
-from typst_writer.domain.errors import NoMainFileError
-from typst_writer.domain.models import Snippet
+from typst_writer.domain.errors import AIFailedError, NoMainFileError
+from typst_writer.domain.models import AISettings, ReviewRequest, ReviewResult, Snippet
 from typst_writer.infra.paths import WorkspaceGuard
 from typst_writer.services.references import WorkspaceIndex, build_index
+from typst_writer.services.review import AIOverview
 from typst_writer.services.workspace import DirListing, Tree, WorkspaceInfo
 
 router = APIRouter(prefix="/api")
@@ -135,6 +140,41 @@ async def render_snippet(snippet_id: str, body: RenderRequest, s: ServicesDep) -
 async def references(body: OverlaysRequest, s: ServicesDep) -> WorkspaceIndex:
     """Labels, citation keys and images for the insert dialogs."""
     return _index(s.workspace.guard, body.overlays)
+
+
+# --- AI -----------------------------------------------------------------------------
+
+
+@router.get("/ai/status")
+async def ai_status(s: ServicesDep, refresh: bool = False) -> AIOverview:
+    return await s.review.overview(refresh=refresh)
+
+
+@router.put("/ai/settings")
+async def ai_settings(body: AISettings, s: ServicesDep) -> AIOverview:
+    return await s.review.update_settings(body)
+
+
+async def _unless_disconnected(
+    request: Request, work: Coroutine[Any, Any, ReviewResult]
+) -> ReviewResult:
+    """Run `work`, cancelling it (and so stopping the claude process) if the browser leaves."""
+    task = asyncio.ensure_future(work)
+    while True:
+        done, _ = await asyncio.wait({task}, timeout=0.5)
+        if done:
+            return task.result()
+        if await request.is_disconnected():
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
+            raise AIFailedError("The review was cancelled.")
+
+
+@router.post("/review")
+async def review(body: ReviewRequest, request: Request, s: ServicesDep) -> ReviewResult:
+    """Review the selection with the model in the Claude slot (NoneProvider when None)."""
+    return await _unless_disconnected(request, s.review.review(body))
 
 
 # --- export --------------------------------------------------------------------------

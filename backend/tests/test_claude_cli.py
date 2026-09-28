@@ -61,7 +61,8 @@ async def test_review_runs_claude_safely(
     draft = await provider().review_selection(REQUEST, "sonnet")
     assert [c.replacement for c in draft.changes] == ["Fehler", "sehr"]
 
-    [call] = calls(fake_claude)
+    auth, call = calls(fake_claude)  # login is checked before every review
+    assert auth["argv"] == ["auth", "status", "--json"]
     argv = call["argv"]
     assert argv[0] == "-p"
     assert argv[argv.index("--tools") + 1] == ""

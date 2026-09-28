@@ -53,3 +53,7 @@ class AIUnavailableError(WorkspaceError):
 
 class AIFailedError(WorkspaceError):
     """The AI was called but did not return a usable answer."""
+
+
+class TextTooLongError(WorkspaceError):
+    pass

@@ -184,9 +184,10 @@ class ClaudeCliProvider:
     async def review_selection(self, req: ReviewRequest, model: str) -> ReviewDraft:
         if model not in self._models:
             raise AIUnavailableError(f"'{model}' is not one of the Claude models in config.toml.")
+        status = await self.status()
         path = shutil.which(self._executable)
-        if path is None:
-            raise AIUnavailableError("The claude command (Claude Code) was not found.")
+        if not status.available or path is None:
+            raise AIUnavailableError(status.reason or "The claude command was not found.")
         args = [
             path,
             "-p",

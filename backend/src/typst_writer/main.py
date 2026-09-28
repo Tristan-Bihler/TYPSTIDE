@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 
+from typst_writer.adapters.claude_cli import ClaudeCliProvider
 from typst_writer.adapters.typst_py import TypstPyCompiler, typst_version
 from typst_writer.api import rest, websocket
 from typst_writer.api.deps import Services
@@ -16,6 +17,8 @@ from typst_writer.infra.app_dirs import cache_dir, config_dir
 from typst_writer.infra.state_store import StateStore
 from typst_writer.ports.compiler import CompileFailedError
 from typst_writer.services.compile import CompileService
+from typst_writer.services.review import ReviewService
+from typst_writer.services.settings import SettingsService
 from typst_writer.services.snippets import SnippetService
 from typst_writer.services.workspace import WorkspaceService
 
@@ -32,6 +35,9 @@ _STATUS: dict[type[errors.WorkspaceError], tuple[int, str]] = {
     errors.NoMainFileError: (409, "no_main"),
     errors.UnknownSnippetError: (404, "unknown_snippet"),
     errors.InvalidSnippetParamsError: (422, "invalid_params"),
+    errors.AIUnavailableError: (409, "ai_unavailable"),
+    errors.AIFailedError: (502, "ai_failed"),
+    errors.TextTooLongError: (413, "too_long"),
 }
 
 
@@ -64,6 +70,11 @@ def create_app(config: AppConfig) -> FastAPI:
         workspace=workspace,
         compile=CompileService(TypstPyCompiler(), cache_dir()),
         snippets=SnippetService(SNIPPETS_PATH),
+        review=ReviewService(
+            ClaudeCliProvider(config.claude.models, config.claude.timeout_seconds),
+            SettingsService(config_dir() / "settings.json"),
+            config.limits.max_ai_text_chars,
+        ),
         hub=websocket.Hub(workspace),
     )
 
