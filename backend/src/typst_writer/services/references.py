@@ -30,6 +30,7 @@ _NOT_MARKUP = re.compile(
     r'```.*?```|`[^`\n]*`|/\*.*?\*/|(?<!:)//[^\n]*|"(?:[^"\\\n]|\\.)*"', re.DOTALL
 )
 _LABEL = re.compile(r"<([^\W_][\w.:-]*)>")
+_IMAGE = re.compile(r'image\(\s*"([^"]+)"')
 _CAPTION = re.compile(r"caption:\s*\[((?:\\.|[^\]\\])*)\]")
 _BIB_ENTRY = re.compile(r"@(\w+)\s*[{(]\s*([^,\s{}()]+)\s*,")
 _BIB_TITLE = re.compile(r"\btitle\s*=\s*[{\"](.+?)[}\"]\s*,?\s*$", re.IGNORECASE | re.MULTILINE)
@@ -62,6 +63,19 @@ def _short(text: str, limit: int = 80) -> str:
     return clean if len(clean) <= limit else clean[: limit - 1] + "…"
 
 
+def _figure_description(source: str, label_start: int) -> str | None:
+    """Caption (or image file name) of the #figure(...) directly before a label."""
+    figure_start = source.rfind("#figure(", max(0, label_start - 5000), label_start)
+    if figure_start < 0:
+        return None
+    span = source[figure_start:label_start]
+    captions = list(_CAPTION.finditer(span))
+    if captions:
+        return captions[-1].group(1)
+    image = _IMAGE.search(span)
+    return image.group(1).rsplit("/", 1)[-1] if image else None
+
+
 def scan_typst(source: str, file: str) -> tuple[list[ReferenceTarget], bool]:
     """Labels defined in one .typ file, and whether it calls #bibliography."""
     code = _NOT_MARKUP.sub(_blank, source)
@@ -74,16 +88,12 @@ def scan_typst(source: str, file: str) -> tuple[list[ReferenceTarget], bool]:
         kind = _PREFIX_KIND.get(key.split(":", 1)[0]) if ":" in key else None
         if kind is None:
             kind = "heading" if line_text.lstrip().startswith("=") else "label"
-        caption = None
-        if kind in ("figure", "table"):
-            before = [
-                c for c in _CAPTION.finditer(source, max(0, match.start() - 3000), match.start())
-            ]
-            caption = before[-1].group(1) if before else None
         if kind == "heading":
             description = line_text.split("<", 1)[0].lstrip("= \t")
+        elif kind in ("figure", "table"):
+            description = _figure_description(source, match.start()) or line_text.strip()
         else:
-            description = caption if caption is not None else line_text.strip()
+            description = line_text.strip()
         targets.append(
             ReferenceTarget(
                 key=key,

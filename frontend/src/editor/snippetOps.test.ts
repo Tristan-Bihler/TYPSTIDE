@@ -57,11 +57,16 @@ describe("linePrefix", () => {
 });
 
 describe("insertBlock / insertInline", () => {
-  it("uses an empty line or starts a new one", () => {
+  it("uses an empty line or starts a new one, and continues on a fresh line", () => {
     const empty = stateOf("Text\n|\nMehr");
-    expect(run(empty, insertBlock(empty, "#outline()")).doc).toBe("Text\n#outline()\nMehr");
+    const a = empty.update(insertBlock(empty, "#outline()")).state;
+    expect(a.doc.toString()).toBe("Text\n#outline()\n\nMehr");
+    expect(a.doc.lineAt(a.selection.main.head).number).toBe(3);
+
     const full = stateOf("Te|xt\nMehr");
-    expect(run(full, insertBlock(full, "#pagebreak()")).doc).toBe("Text\n#pagebreak()\nMehr");
+    const b = full.update(insertBlock(full, "#pagebreak()")).state;
+    expect(b.doc.toString()).toBe("Text\n#pagebreak()\n\nMehr");
+    expect(b.doc.lineAt(b.selection.main.head).text).toBe("");
   });
 
   it("replaces the selection inline", () => {

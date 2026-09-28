@@ -46,16 +46,16 @@ export function linePrefix(state: EditorState, prefix: string): TransactionSpec 
 
 /**
  * Insert code as a block on its own line(s): on the cursor's line if it is empty,
- * otherwise on a new line after it. The cursor ends after the block.
+ * otherwise on a new line after it. Like a word processor, the cursor continues on a
+ * fresh empty line below the block.
  */
 export function insertBlock(state: EditorState, code: string): TransactionSpec {
   const line = state.doc.lineAt(state.selection.main.head);
   const empty = line.text.trim() === "";
-  const insert = empty ? code : `\n${code}`;
+  const insert = empty ? `${code}\n` : `\n${code}\n`;
   const from = empty ? line.from : line.to;
-  const to = empty ? line.to : line.to;
   return {
-    changes: { from, to, insert },
+    changes: { from, to: line.to, insert },
     selection: EditorSelection.cursor(from + insert.length),
     scrollIntoView: true,
     userEvent: "input.snippet",

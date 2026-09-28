@@ -48,6 +48,18 @@ def test_scan_typst_finds_labels_with_kind_and_description() -> None:
     assert scan_typst('// #bibliography("refs.bib")', "main.typ")[1] is False
 
 
+def test_caption_belongs_to_its_own_figure() -> None:
+    source = (
+        "#figure(table(columns: 1, [a]), caption: [Tabelle]) <tab:a>\n"
+        '#figure(image("/bilder/aufbau.svg")) <fig:b>\n'
+    )
+    targets, _ = scan_typst(source, "k.typ")
+    assert [(t.key, t.description) for t in targets] == [
+        ("tab:a", "Tabelle"),
+        ("fig:b", "aufbau.svg"),
+    ]
+
+
 def test_scan_bib() -> None:
     targets = scan_bib(BIB, "quellen.bib")
     assert [(t.key, t.description, t.line) for t in targets] == [

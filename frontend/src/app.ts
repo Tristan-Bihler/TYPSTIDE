@@ -14,6 +14,7 @@ import { isTextFile, type Actions, type EntryKind } from "./state/actions";
 import { movedPath, nameError, withTypExtension } from "./state/names";
 import { initialState, isDirty, Store, type AppState, type Language, type OpenDoc } from "./state/store";
 import { mountTopbar } from "./topbar/fileActions";
+import { mountInsertToolbar } from "./topbar/insertToolbar";
 import { chooseAction, confirmAction, promptText, showMessage } from "./ui/dialog";
 import { basename, storage } from "./ui/dom";
 
@@ -36,7 +37,7 @@ export class App implements Actions {
 
   constructor(root: HTMLElement) {
     const shell = buildShell(root);
-    mountTopbar(shell.topbar, this.store, this);
+    const insertHost = mountTopbar(shell.topbar, this.store, this);
     mountFileTree(shell.files, this.store, this);
     mountProblems(shell.problems, this.store, this);
     mountStatusbar(shell.statusbar, this.store, this);
@@ -49,6 +50,13 @@ export class App implements Actions {
       onClose: (path) => void this.closeDoc(path),
     });
     this.editor.show(null);
+    mountInsertToolbar(insertHost, {
+      store: this.store,
+      editor: this.editor,
+      overlays: () => this.overlays(),
+    }).catch((error: unknown) => {
+      void showMessage("Could not load the insert toolbar", errorText(error));
+    });
 
     this.live = new LiveConnection({
       onMessage: (message) => this.receive(message),
@@ -65,6 +73,11 @@ export class App implements Actions {
     window.addEventListener("beforeunload", (event) => {
       if (this.store.get().docs.some(isDirty)) event.preventDefault();
     });
+  }
+
+  /** Unsaved buffers by path (for export and the insert dialogs). */
+  overlays(): Record<string, string> {
+    return Object.fromEntries(this.store.get().docs.filter(isDirty).map((d) => [d.path, d.content]));
   }
 
   start(): void {
@@ -343,7 +356,7 @@ export class App implements Actions {
   }
 
   async exportPdf(): Promise<void> {
-    const overlays = Object.fromEntries(this.store.get().docs.filter(isDirty).map((d) => [d.path, d.content]));
+    const overlays = this.overlays();
     try {
       const { blob, filename } = await api.exportPdf(overlays);
       const url = URL.createObjectURL(blob);
