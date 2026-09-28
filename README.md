@@ -21,21 +21,30 @@ python scripts/dev.py
 Starts the backend on `127.0.0.1:8000` and the frontend on
 <http://127.0.0.1:5173>. Ctrl+C stops both. Ports live in `config.toml`.
 
+Open a folder, and the preview on the right always shows the folder's **main file**
+(`main.typ`, or whichever file you pick with right-click → *Set as main file*), including
+unsaved edits in any open chapter. *Save* (Ctrl+S) writes all changed files; *Export PDF*
+exports exactly what the preview shows.
+
 ## Check
 
 ```sh
-python scripts/check.py
+python scripts/check.py          # ruff, mypy --strict, pytest, tsc, vitest
+python scripts/check.py --e2e    # plus the Playwright UI tests
 ```
 
-Runs ruff (lint + format), `mypy --strict`, pytest, `tsc` and vitest.
+The UI tests need Chromium once (`uv run --project backend playwright install chromium`)
+and free ports 8000/5173, so stop `dev.py` first.
 
 ## Layout
 
 | Path | Contents |
 |---|---|
 | `backend/` | FastAPI app (`src/typst_writer/`), tests |
-| `frontend/` | Vite + TypeScript UI |
+| `frontend/` | Vite + TypeScript UI (CodeMirror 6) |
+| `e2e/` | Playwright UI tests |
 | `scripts/` | `dev.py` (start), `check.py` (all checks) |
+| `docs/` | UI sketch, design notes |
 | `config.toml` | Ports, pinned Typst version, timings, limits, Claude model list |
 
 Typst is pinned to **0.15.0** (typst-py). The backend refuses to start if the installed

@@ -375,9 +375,16 @@ Use these skills when they are installed. At the start of a session, check which
   - Start: `python scripts/dev.py` (backend 127.0.0.1:8000 with reload, Vite 127.0.0.1:5173 proxying `/api` and `/ws`). Check: `python scripts/check.py` (ruff, ruff format, mypy --strict, pytest, tsc, vitest).
   - Typst pinned to 0.15.0 (typst-py); backend refuses to start on mismatch with `config.toml`. Ruff is configured repo-wide in `ruff.toml`.
   - typst-py returns `bytes` (not a list) for single-page SVG output; the Phase 1 compiler adapter must normalize this.
-  - Open: Starlette's TestClient prefers `httpx2` over `httpx` (warning silenced in pytest config). `frontend-design` skill lives at `/mnt/skills/public/frontend-design`; `webapp-testing` not installed yet.
+  - Open: Starlette's TestClient prefers `httpx2` over `httpx` (warning silenced in pytest config).
+  - Skills: in cloud sessions install with `claude plugin marketplace add anthropics/skills` + `claude plugin install example-skills@anthropic-agent-skills` (contains `frontend-design`, `webapp-testing`, `skill-creator`; there is no separate `webapp-testing` plugin).
   - Cloud sessions block `packages.typst.org` and GitHub release downloads — needed for Phase 2 (chart package) and Phase 4 (LTeX+).
-- [ ] Phase 1 – Core layout
+- [x] Phase 1 – Core layout
+  - **Preview always renders the main file** (user decision), including unsaved edits in any open file: `infra/shadow.py` mirrors the workspace into the cache dir (hard links, copy fallback) and writes unsaved buffers there; the workspace is never written by compiles. Main = `main.typ` by default, or "Set as main file" (persisted per workspace in `<config dir>/state.json`, with the last opened folder). New `.typ` file becomes main if none is set.
+  - Open folder = dialog with a path field plus sub-folder list (`/api/workspace/browse`); a native dialog comes with pywebview in Phase 7.
+  - WebSocket messages differ from section 3: client sends `doc_changed`, `doc_closed`, `refresh` (no `open_file`; files are read via REST); server sends `compile_status` in addition. `preview_pages` sends only changed pages (`svg: null` = unchanged).
+  - typst-py reports only the **first** compile error (plus all warnings); columns are 0-based characters (adapter converts to 1-based).
+  - Security additions: `TrustedHostMiddleware` (DNS rebinding), WebSocket `Origin` check, preview pages rendered as `<img>` SVG blobs (no script/link execution), delete/rename act on symlinks themselves.
+  - UI tests: `python scripts/check.py --e2e` (Python Playwright in `e2e/`, needs free ports 8000/5173; in cloud sessions set `PLAYWRIGHT_CHROMIUM_EXECUTABLE=/opt/pw-browsers/chromium-1194/chrome-linux/chrome`). Design tokens and principles: `docs/design.md`.
 - [ ] Phase 2 – Insert toolbar
 - [ ] Phase 3 – AI selector + Claude review
 - [ ] Phase 4 – LTeX+ rule checks
