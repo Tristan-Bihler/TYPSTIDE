@@ -58,6 +58,16 @@ def test_only_changed_pages_are_resent(opened: TestClient) -> None:
         assert [p["svg"] is None for p in pages] == [True, True]
 
 
+def test_pages_are_resent_after_preview_was_cleared(opened: TestClient) -> None:
+    with opened.websocket_connect(WS_URL) as ws:
+        receive_compile(ws)
+        opened.put("/api/workspace/main", json={"path": None})
+        receive_compile_until(ws, lambda c: c["compile_status"]["state"] == "no_main")
+        opened.put("/api/workspace/main", json={"path": "main.typ"})
+        cycle = receive_compile_until(ws, lambda c: "preview_pages" in c)
+        assert cycle["preview_pages"]["pages"][0]["svg"] is not None
+
+
 def test_error_keeps_last_preview_and_reports_problem(opened: TestClient) -> None:
     with opened.websocket_connect(WS_URL) as ws:
         receive_compile(ws)

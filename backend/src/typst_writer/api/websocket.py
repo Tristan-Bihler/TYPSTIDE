@@ -64,9 +64,7 @@ class Session:
         workspace = self._services.workspace
         info = workspace.info()
         if info is None or info.main is None:
-            state: CompileState = "no_workspace" if info is None else "no_main"
-            await self.send(ProblemsMessage(problems=[]))
-            await self.send(CompileStatus(state=state, main=None))
+            await self._nothing_to_show("no_workspace" if info is None else "no_main")
             return
         await self.send(CompileStatus(state="compiling", main=info.main))
         try:
@@ -74,8 +72,7 @@ class Session:
                 workspace.guard.root, info.main, dict(self.overlays)
             )
         except NoMainFileError:
-            await self.send(ProblemsMessage(problems=[]))
-            await self.send(CompileStatus(state="no_main", main=None))
+            await self._nothing_to_show("no_main")
             return
         if result.ok:
             await self.send(PreviewPages(pages=self._page_updates(result.pages)))
@@ -87,6 +84,11 @@ class Session:
                 duration_ms=round(result.duration_ms, 1),
             )
         )
+
+    async def _nothing_to_show(self, state: CompileState) -> None:
+        self._page_hashes = []  # the client clears its preview; resend every page next time
+        await self.send(ProblemsMessage(problems=[]))
+        await self.send(CompileStatus(state=state, main=None))
 
     def _page_updates(self, pages: list[str]) -> list[PageUpdate]:
         hashes = [hashlib.sha1(p.encode("utf-8"), usedforsecurity=False).hexdigest() for p in pages]
