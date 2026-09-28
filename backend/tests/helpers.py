@@ -5,12 +5,19 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from starlette.testclient import WebSocketTestSession
+from starlette.testclient import TestClient, WebSocketTestSession
 
-from typst_writer.config import DEFAULT_CONFIG_PATH
+from typst_writer.config import DEFAULT_CONFIG_PATH, load_config
+from typst_writer.main import create_app
 
 FRONTEND_ORIGIN = "http://127.0.0.1:5173"
 WS_URL = "ws://127.0.0.1/ws"  # absolute: the test client would otherwise send Host: testserver
+APP_HEADERS = {"X-Typst-Writer": "1"}  # sent by the frontend with every request
+
+
+def app_client() -> TestClient:
+    """A test client for a fresh app, sending what the frontend sends."""
+    return TestClient(create_app(load_config()), base_url="http://127.0.0.1", headers=APP_HEADERS)
 
 
 def receive_until(ws: WebSocketTestSession, message_type: str, limit: int = 20) -> dict[str, Any]:

@@ -6,8 +6,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from typst_writer.config import load_config
-from typst_writer.main import create_app
+from helpers import app_client
 
 
 def test_no_workspace_initially(client: TestClient) -> None:
@@ -180,7 +179,7 @@ def test_set_main(opened: TestClient) -> None:
 
 def test_state_is_restored_on_restart(opened: TestClient, workspace: Path) -> None:
     opened.put("/api/workspace/main", json={"path": "chapters/intro.typ"})
-    with TestClient(create_app(load_config()), base_url="http://127.0.0.1") as fresh:
+    with app_client() as fresh:
         info = fresh.get("/api/workspace").json()
     assert info["root"] == str(workspace.resolve())
     assert info["main"] == "chapters/intro.typ"

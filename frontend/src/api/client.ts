@@ -75,11 +75,15 @@ export async function getHealth(fetchFn: Fetch = fetch): Promise<HealthResponse>
   return body;
 }
 
+/** Sent with every request; the backend refuses changing requests without it, so no other
+ * web page can make the app act (a custom header needs a CORS preflight). */
+export const APP_HEADERS: Record<string, string> = { "X-Typst-Writer": "1" };
+
 async function request<T>(method: string, url: string, body?: unknown, signal?: AbortSignal): Promise<T> {
-  const init: RequestInit = { method };
+  const init: RequestInit = { method, headers: { ...APP_HEADERS } };
   if (signal !== undefined) init.signal = signal;
   if (body !== undefined) {
-    init.headers = { "Content-Type": "application/json" };
+    init.headers = { ...APP_HEADERS, "Content-Type": "application/json" };
     init.body = JSON.stringify(body);
   }
   const response = await fetch(url, init);
@@ -145,7 +149,7 @@ export const api = {
   async exportPdf(overlays: Record<string, string>): Promise<{ blob: Blob; filename: string }> {
     const response = await fetch("/api/export/pdf", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { ...APP_HEADERS, "Content-Type": "application/json" },
       body: JSON.stringify({ overlays }),
     });
     if (!response.ok) throw await toApiError(response, "Export PDF");

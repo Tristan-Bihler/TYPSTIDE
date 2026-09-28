@@ -8,8 +8,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from typst_writer.config import load_config
-from typst_writer.main import create_app
+from helpers import app_client
 
 pytestmark = pytest.mark.skipif(os.name == "nt", reason="fake claude uses a shebang script")
 
@@ -52,7 +51,7 @@ def test_settings_are_validated_persisted_and_restored(client: TestClient) -> No
     assert client.put("/api/ai/settings", json={"local_model": "llama3"}).status_code == 409
     saved = client.put("/api/ai/settings", json={"claude_model": "opus"}).json()
     assert saved["settings"]["claude_model"] == "opus"
-    with TestClient(create_app(load_config()), base_url="http://127.0.0.1") as fresh:
+    with app_client() as fresh:
         assert fresh.get("/api/ai/status").json()["settings"]["claude_model"] == "opus"
 
 

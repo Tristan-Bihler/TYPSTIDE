@@ -1,6 +1,7 @@
 """Load and validate `config.toml` from the repository root."""
 
 import os
+import sys
 import tomllib
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -8,9 +9,21 @@ from urllib.parse import urlsplit
 from pydantic import BaseModel, ConfigDict, field_validator
 
 CONFIG_ENV_VAR = "TYPST_WRITER_CONFIG"
-REPO_ROOT = Path(__file__).resolve().parents[3]
-DEFAULT_CONFIG_PATH = REPO_ROOT / "config.toml"
-SNIPPETS_PATH = REPO_ROOT / "snippets.toml"
+
+
+def resource_root() -> Path:
+    """Where config.toml, snippets.toml and the built frontend are: inside the bundle of the
+    Windows app (PyInstaller), the repository otherwise."""
+    bundle = getattr(sys, "_MEIPASS", None)
+    if getattr(sys, "frozen", False) and isinstance(bundle, str):
+        return Path(bundle)
+    return Path(__file__).resolve().parents[3]
+
+
+RESOURCE_ROOT = resource_root()
+DEFAULT_CONFIG_PATH = RESOURCE_ROOT / "config.toml"
+SNIPPETS_PATH = RESOURCE_ROOT / "snippets.toml"
+FRONTEND_DIST = RESOURCE_ROOT / "frontend" / "dist"  # built by `npm run build`
 LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
 
 
@@ -78,6 +91,11 @@ class TinymistConfig(_Section):
     request_timeout_seconds: int = 10
 
 
+class DesktopConfig(_Section):
+    # Fixed, so the window's origin (and the layout it remembers) stays the same.
+    port: int = 47813
+
+
 class AppConfig(_Section):
     server: ServerConfig = ServerConfig()
     typst: TypstConfig = TypstConfig()
@@ -87,6 +105,7 @@ class AppConfig(_Section):
     ollama: OllamaConfig = OllamaConfig()
     ltex: LtexConfig = LtexConfig()
     tinymist: TinymistConfig = TinymistConfig()
+    desktop: DesktopConfig = DesktopConfig()
 
 
 def load_config(path: Path | None = None) -> AppConfig:

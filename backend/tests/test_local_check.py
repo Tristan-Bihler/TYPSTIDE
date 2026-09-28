@@ -11,12 +11,17 @@ import pytest
 from fastapi.testclient import TestClient
 from starlette.testclient import WebSocketTestSession
 
-from typst_writer.config import CONFIG_ENV_VAR, load_config
+from typst_writer.config import CONFIG_ENV_VAR
 from typst_writer.infra.ltex_install import LTEX_DIR_ENV_VAR
-from typst_writer.main import create_app
 
 from fakes.ollama import MODEL, FakeOllama
-from helpers import FRONTEND_ORIGIN, WS_URL, make_fake_ltex_install, write_config
+from helpers import (
+    FRONTEND_ORIGIN,
+    WS_URL,
+    app_client,
+    make_fake_ltex_install,
+    write_config,
+)
 
 CHAPTER = "chapters/intro.typ"
 UNTOUCHED = "Dieser Absatz bleibt unverändert, weil er hat keine Zeit für Änderungen."
@@ -35,7 +40,7 @@ def ollama(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[FakeOlla
 @pytest.fixture
 def app(workspace: Path, ollama: FakeOllama) -> Iterator[TestClient]:
     (workspace / CHAPTER).write_text(ORIGINAL, encoding="utf-8")
-    with TestClient(create_app(load_config()), base_url="http://127.0.0.1") as client:
+    with app_client() as client:
         client.post("/api/workspace/open", json={"path": str(workspace)})
         assert client.put("/api/ai/settings", json={"local_model": MODEL}).status_code == 200
         yield client
@@ -151,7 +156,7 @@ def test_local_findings_on_spelling_findings_are_dropped(
 ) -> None:
     monkeypatch.setenv(LTEX_DIR_ENV_VAR, str(make_fake_ltex_install(tmp_path / "ltex")))
     edited = EDITABLE + " Das ist ein Fehlr, und die Ergebnis stimmt."
-    with TestClient(create_app(load_config()), base_url="http://127.0.0.1") as client:
+    with app_client() as client:
         client.post("/api/workspace/open", json={"path": str(workspace)})
         client.put("/api/ai/settings", json={"local_model": MODEL})
         with _connect(client) as ws:

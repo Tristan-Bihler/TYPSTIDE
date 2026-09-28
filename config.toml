@@ -10,6 +10,11 @@ frontend_port = 5173
 # Must match the typst-py pin in backend/pyproject.toml.
 version = "0.15.0"
 
+[desktop]
+# The Windows app serves itself on this port (127.0.0.1 only). Change it if another program
+# uses it; the app then forgets its remembered panel sizes once.
+port = 47813
+
 [timing]
 doc_changed_debounce_ms = 300
 typing_paused_ms = 1500

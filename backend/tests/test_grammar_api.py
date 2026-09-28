@@ -12,12 +12,12 @@ from starlette.testclient import WebSocketTestSession
 from typst_writer.config import load_config
 from typst_writer.infra import ltex_install, tool_download
 from typst_writer.infra.ltex_install import LTEX_DIR_ENV_VAR
-from typst_writer.main import create_app
 from typst_writer.services import grammar as grammar_service
 
 from helpers import (
     FRONTEND_ORIGIN,
     WS_URL,
+    app_client,
     make_fake_ltex_install,
     receive_suggestions,
     receive_until,
@@ -63,7 +63,7 @@ def test_without_ltex_everything_works_and_install_is_offered(opened: TestClient
 
 
 def test_opened_file_is_checked_and_changes_are_rechecked(workspace: Path, fake_ltex: Path) -> None:
-    with TestClient(create_app(load_config()), base_url="http://127.0.0.1") as client:
+    with app_client() as client:
         client.post("/api/workspace/open", json={"path": str(workspace)})
         with _connect(client) as ws:
             _wait_ready(ws)
@@ -89,7 +89,7 @@ def test_opened_file_is_checked_and_changes_are_rechecked(workspace: Path, fake_
 def test_files_outside_the_workspace_and_other_types_are_not_checked(
     workspace: Path, fake_ltex: Path
 ) -> None:
-    with TestClient(create_app(load_config()), base_url="http://127.0.0.1") as client:
+    with app_client() as client:
         client.post("/api/workspace/open", json={"path": str(workspace)})
         with _connect(client) as ws:
             _wait_ready(ws)
@@ -104,7 +104,7 @@ def test_files_outside_the_workspace_and_other_types_are_not_checked(
 def test_language_and_dictionary_trigger_a_recheck_and_persist(
     workspace: Path, fake_ltex: Path
 ) -> None:
-    with TestClient(create_app(load_config()), base_url="http://127.0.0.1") as client:
+    with app_client() as client:
         client.post("/api/workspace/open", json={"path": str(workspace)})
         with _connect(client) as ws:
             _wait_ready(ws)
@@ -123,7 +123,7 @@ def test_language_and_dictionary_trigger_a_recheck_and_persist(
             assert overview["settings"]["dictionary"] == {"en-US": ["teh"]}
             assert receive_suggestions(ws, CHAPTER)["suggestions"] == []
 
-    with TestClient(create_app(load_config()), base_url="http://127.0.0.1") as fresh:
+    with app_client() as fresh:
         settings = fresh.get("/api/grammar").json()["settings"]
         assert settings == {"language": "en-US", "dictionary": {"en-US": ["teh"]}}
 
@@ -159,7 +159,7 @@ def test_install_on_request_then_checks_run(
         return found
 
     monkeypatch.setattr(grammar_service, "install", fake_install)
-    with TestClient(create_app(load_config()), base_url="http://127.0.0.1") as client:
+    with app_client() as client:
         client.post("/api/workspace/open", json={"path": str(workspace)})
         with _connect(client) as ws:
             assert receive_until(ws, "checker_status")["status"]["state"] == "not_installed"
@@ -229,7 +229,7 @@ def test_global_words_from_before_move_into_the_open_project(
 
 
 def test_checks_use_the_open_projects_words(workspace: Path, fake_ltex: Path) -> None:
-    with TestClient(create_app(load_config()), base_url="http://127.0.0.1") as client:
+    with app_client() as client:
         client.post("/api/workspace/open", json={"path": str(workspace)})
         with _connect(client) as ws:
             _wait_ready(ws)

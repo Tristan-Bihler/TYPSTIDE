@@ -6,11 +6,9 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from typst_writer.config import load_config
 from typst_writer.domain.word_count import count_words, document_counts, includes
-from typst_writer.main import create_app
 
-from helpers import FRONTEND_ORIGIN, WS_URL, receive_until
+from helpers import FRONTEND_ORIGIN, WS_URL, app_client, receive_until
 
 
 def test_word_count_ignores_markup() -> None:
@@ -85,7 +83,7 @@ def test_ui_settings_default_validate_and_persist(client: TestClient) -> None:
     assert client.put("/api/settings/ui", json=new).json() == new
     for bad in [{**new, "theme": "neon"}, {**new, "autosave_delay_ms": 10}, {**new, "x": 1}]:
         assert client.put("/api/settings/ui", json=bad).status_code == 422
-    with TestClient(create_app(load_config()), base_url="http://127.0.0.1") as fresh:
+    with app_client() as fresh:
         assert fresh.get("/api/settings/ui").json() == new
 
 

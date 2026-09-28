@@ -7,12 +7,11 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from typst_writer.config import CONFIG_ENV_VAR, load_config
+from typst_writer.config import CONFIG_ENV_VAR
 from typst_writer.infra.app_dirs import HOME_ENV_VAR
 from typst_writer.infra.tinymist_install import TINYMIST_ENV_VAR
-from typst_writer.main import create_app
 
-from helpers import write_config
+from helpers import app_client, write_config
 
 
 @pytest.fixture(autouse=True)
@@ -81,7 +80,7 @@ def workspace(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def client() -> Iterator[TestClient]:
-    with TestClient(create_app(load_config()), base_url="http://127.0.0.1") as c:
+    with app_client() as c:
         yield c
 
 

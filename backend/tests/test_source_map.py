@@ -5,13 +5,10 @@ from pathlib import Path
 
 import pytest
 import typst
-from fastapi.testclient import TestClient
 
-from typst_writer.config import load_config
-from typst_writer.main import create_app
 from typst_writer.services import source_map
 
-from helpers import FRONTEND_ORIGIN, WS_URL, receive_until
+from helpers import FRONTEND_ORIGIN, WS_URL, app_client, receive_until
 
 MAIN = (
     '#set page(height: 12cm)\n#set heading(numbering: "1.1")\n'
@@ -118,7 +115,7 @@ def test_jump_and_preview_position_over_websocket(workspace: Path) -> None:
     (workspace / "main.typ").write_text(MAIN, encoding="utf-8")
     (workspace / "kapitel").mkdir()
     (workspace / "kapitel" / "a.typ").write_text(CHAPTER, encoding="utf-8")
-    with TestClient(create_app(load_config()), base_url="http://127.0.0.1") as client:
+    with app_client() as client:
         client.post("/api/workspace/open", json={"path": str(workspace)})
         with client.websocket_connect(WS_URL, headers={"origin": FRONTEND_ORIGIN}) as ws:
             receive_until(ws, "compile_status")

@@ -1,13 +1,15 @@
 """FastAPI app factory and server entry point."""
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
+from fastapi.staticfiles import StaticFiles
 
 from typst_writer.adapters.claude_cli import ClaudeCliProvider
 from typst_writer.adapters.ollama import OllamaProvider
@@ -31,6 +33,10 @@ from typst_writer.services.workspace import WorkspaceService
 
 # Never configurable: the app must only be reachable from this machine.
 HOST = "127.0.0.1"
+# Every changing request must carry this header. Browsers send a custom header cross-site
+# only after a CORS preflight, which other origins fail: no web page can make the app act.
+APP_HEADER = "X-Typst-Writer"
+CHANGING_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 
 _STATUS: dict[type[errors.WorkspaceError], tuple[int, str]] = {
     errors.NoWorkspaceError: (409, "no_workspace"),
@@ -64,7 +70,21 @@ async def _compile_failed(_request: Request, exc: Exception) -> JSONResponse:
     return JSONResponse(status_code=422, content=body.model_dump())
 
 
-def create_app(config: AppConfig) -> FastAPI:
+async def _require_app_header(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
+    changing = request.method in CHANGING_METHODS and request.url.path.startswith("/api/")
+    if changing and request.headers.get(APP_HEADER) != "1":
+        body = ErrorResponse(detail=f"Missing {APP_HEADER} header.", code="missing_header")
+        return JSONResponse(status_code=403, content=body.model_dump())
+    return await call_next(request)
+
+
+def create_app(
+    config: AppConfig, *, static_dir: Path | None = None, origin: str | None = None
+) -> FastAPI:
+    """The app. `static_dir`: serve the built frontend too (Windows app); `origin`: the
+    page's origin then, instead of the Vite dev server's."""
     bundled = typst_version()
     if bundled != config.typst.version:
         raise RuntimeError(
@@ -112,12 +132,13 @@ def create_app(config: AppConfig) -> FastAPI:
         title="typst-writer", docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan
     )
     app.state.services = services
-    app.state.allowed_origins = {f"http://{HOST}:{config.server.frontend_port}"}
+    app.state.allowed_origins = {origin or f"http://{HOST}:{config.server.frontend_port}"}
+    app.middleware("http")(_require_app_header)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=sorted(app.state.allowed_origins),
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
-        allow_headers=["Content-Type"],
+        allow_headers=["Content-Type", APP_HEADER],
     )
     # Blocks DNS-rebinding: a foreign domain resolving to 127.0.0.1 is still refused.
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=[HOST, "localhost"])
@@ -125,6 +146,8 @@ def create_app(config: AppConfig) -> FastAPI:
     app.add_exception_handler(CompileFailedError, _compile_failed)
     app.include_router(rest.router)
     app.include_router(websocket.router)
+    if static_dir is not None:
+        app.mount("/", StaticFiles(directory=static_dir, html=True), name="frontend")
     return app
 
 

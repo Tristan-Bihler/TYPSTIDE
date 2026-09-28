@@ -21,9 +21,14 @@ from typst_writer.infra.tinymist_install import (
     platform_key,
 )
 from typst_writer.infra.tool_download import InstallError
-from typst_writer.main import create_app
 
-from helpers import FRONTEND_ORIGIN, WS_URL, make_fake_tinymist, receive_until
+from helpers import (
+    FRONTEND_ORIGIN,
+    WS_URL,
+    app_client,
+    make_fake_tinymist,
+    receive_until,
+)
 
 CHAPTER = "== Einleitung <sec:intro>\n\nSiehe \n"
 
@@ -170,7 +175,7 @@ def completing(tinymist_log: Path, workspace: Path) -> Iterator[TestClient]:
         '= Thesis <sec:thesis>\n#include "chapters/intro.typ"\n', encoding="utf-8"
     )
     (workspace / "chapters" / "intro.typ").write_text(CHAPTER, encoding="utf-8")
-    with TestClient(create_app(load_config()), base_url="http://127.0.0.1") as client:
+    with app_client() as client:
         assert client.post("/api/workspace/open", json={"path": str(workspace)}).status_code == 200
         yield client
 

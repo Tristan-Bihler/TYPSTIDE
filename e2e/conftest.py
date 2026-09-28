@@ -160,10 +160,13 @@ def page(browser: Browser, app_url: str, workspace: Path) -> Iterator[Page]:
     errors: list[str] = []
     page.on("pageerror", lambda e: errors.append(str(e)))
     # Every test starts with both AI slots set to None (settings persist in the session).
+    app = {"X-Typst-Writer": "1"}  # required on changing requests, like the frontend sends
     context.request.put(
-        f"{app_url}/api/ai/settings", data={"local_model": None, "claude_model": None}
+        f"{app_url}/api/ai/settings",
+        data={"local_model": None, "claude_model": None},
+        headers=app,
     )
-    context.request.put(f"{app_url}/api/grammar/settings", data={"language": "de-DE"})
+    context.request.put(f"{app_url}/api/grammar/settings", data={"language": "de-DE"}, headers=app)
     # Autosave off (tests look at unsaved changes), theme and tabs back to defaults.
     ui = {
         "theme": "system",
@@ -171,7 +174,7 @@ def page(browser: Browser, app_url: str, workspace: Path) -> Iterator[Page]:
         "autosave_delay_ms": 2000,
         "preview_follows_cursor": True,
     }
-    context.request.put(f"{app_url}/api/settings/ui", data=ui)
+    context.request.put(f"{app_url}/api/settings/ui", data=ui, headers=app)
     page.goto(app_url)
     page.get_by_role("button", name="Open folder", exact=True).first.click()
     picker = page.locator(".folder-picker")
