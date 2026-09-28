@@ -59,6 +59,10 @@ block, `@` a reference, `<`/`>` a label, `` ` `` raw text, `~` a non-breaking sp
 escape — and `/` because **`//` starts a comment that swallows the closing `]`** (and `/*`
 silently hides the rest). Also collapse newlines to spaces in single-line fields.
 
+At the **start** of the text, `= `, `- `, `+ ` and `1. ` turn the whole caption into a
+heading or list item. Escape that leading marker (`\= `, `\- `, `\+ `, `1\. `). Leave
+mid-text `--`/`---` alone: they become en/em dashes, which is typography, not structure.
+
 Inside string literals (`image("…")`) escape only `\` and `"`.
 
 Labels: `<prefix:name>` with letters (umlauts are fine), digits, `_ - . :`. Use the

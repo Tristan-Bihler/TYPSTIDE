@@ -36,3 +36,12 @@ class NotATextFileError(WorkspaceError):
 class NoMainFileError(WorkspaceError):
     def __init__(self) -> None:
         super().__init__("No main file. Right-click a .typ file and choose 'Set as main file'.")
+
+
+class UnknownSnippetError(WorkspaceError):
+    def __init__(self, snippet_id: str) -> None:
+        super().__init__(f"There is no snippet '{snippet_id}'.")
+
+
+class InvalidSnippetParamsError(WorkspaceError):
+    pass

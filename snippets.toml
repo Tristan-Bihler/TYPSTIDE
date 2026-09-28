@@ -1,0 +1,131 @@
+# Insert toolbar ("Typst functions"). Order here is the order in the toolbar; snippets that
+# share a group with others become one dropdown. Syntax verified for Typst 0.15.0, see
+# .claude/skills/typst-syntax. Every snippet is compiled in backend/tests/test_snippets.py.
+#
+# kind:
+#   wrap         replace {selection} in template (placeholder is used and selected if empty)
+#   line_prefix  put template at the start of the current line(s); again removes it
+#   block        template on a line of its own
+#   dialog       opens a dialog; the backend generates the code (see services/snippets.py)
+
+[[snippet]]
+id = "heading-1"
+label = "Heading 1"
+group = "heading"
+kind = "line_prefix"
+template = "= "
+
+[[snippet]]
+id = "heading-2"
+label = "Heading 2"
+group = "heading"
+kind = "line_prefix"
+template = "== "
+
+[[snippet]]
+id = "heading-3"
+label = "Heading 3"
+group = "heading"
+kind = "line_prefix"
+template = "=== "
+
+[[snippet]]
+id = "heading-4"
+label = "Heading 4"
+group = "heading"
+kind = "line_prefix"
+template = "==== "
+
+[[snippet]]
+id = "bold"
+label = "Bold"
+group = "bold"
+kind = "wrap"
+template = "*{selection}*"
+placeholder = "text"
+shortcut = "Mod-b"
+
+[[snippet]]
+id = "italic"
+label = "Italic"
+group = "italic"
+kind = "wrap"
+template = "_{selection}_"
+placeholder = "text"
+shortcut = "Mod-i"
+
+[[snippet]]
+id = "list-bullet"
+label = "Bulleted list"
+group = "list"
+kind = "line_prefix"
+template = "- "
+
+[[snippet]]
+id = "list-numbered"
+label = "Numbered list"
+group = "list"
+kind = "line_prefix"
+template = "+ "
+
+[[snippet]]
+id = "table"
+label = "Table"
+group = "table"
+kind = "dialog"
+dialog = "table"
+
+[[snippet]]
+id = "figure"
+label = "Figure"
+group = "figure"
+kind = "dialog"
+dialog = "figure"
+title = "Insert an image from the folder as a figure with caption"
+
+[[snippet]]
+id = "equation"
+label = "Equation"
+group = "equation"
+kind = "dialog"
+dialog = "equation"
+
+[[snippet]]
+id = "reference"
+label = "Reference"
+group = "reference"
+kind = "dialog"
+dialog = "reference"
+title = "Refer to a figure, table, equation or a source from your bibliography"
+
+[[snippet]]
+id = "footnote"
+label = "Footnote"
+group = "footnote"
+kind = "wrap"
+template = "#footnote[{selection}]"
+placeholder = "footnote text"
+
+[[snippet]]
+id = "outline"
+label = "Outline"
+group = "outline"
+kind = "block"
+template = "#outline()"
+title = "Insert a table of contents"
+
+[[snippet]]
+id = "pagebreak"
+label = "Page break"
+group = "pagebreak"
+kind = "block"
+template = "#pagebreak()"
+
+# Offered inside the Reference dialog when sources exist but no bibliography is printed.
+[[snippet]]
+id = "bibliography"
+label = "Bibliography"
+group = "bibliography"
+kind = "dialog"
+dialog = "bibliography"
+in_toolbar = false

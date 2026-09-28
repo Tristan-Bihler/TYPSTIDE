@@ -7,7 +7,9 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict
 
 CONFIG_ENV_VAR = "TYPST_WRITER_CONFIG"
-DEFAULT_CONFIG_PATH = Path(__file__).resolve().parents[3] / "config.toml"
+REPO_ROOT = Path(__file__).resolve().parents[3]
+DEFAULT_CONFIG_PATH = REPO_ROOT / "config.toml"
+SNIPPETS_PATH = REPO_ROOT / "snippets.toml"
 
 
 class _Section(BaseModel):
