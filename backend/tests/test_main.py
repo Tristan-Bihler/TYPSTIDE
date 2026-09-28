@@ -2,10 +2,11 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from helpers import FRONTEND_ORIGIN
 
 from typst_writer.config import AppConfig, TypstConfig, load_config
 from typst_writer.main import create_app
+
+from helpers import FRONTEND_ORIGIN
 
 
 def test_health_reports_pinned_typst_version(client: TestClient) -> None:

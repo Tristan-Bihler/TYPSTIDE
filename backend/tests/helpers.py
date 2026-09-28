@@ -1,10 +1,12 @@
 """Shared test helpers."""
 
+from collections.abc import Callable
 from typing import Any
 
 from starlette.testclient import WebSocketTestSession
 
 FRONTEND_ORIGIN = "http://127.0.0.1:5173"
+WS_URL = "ws://127.0.0.1/ws"  # absolute: the test client would otherwise send Host: testserver
 
 
 def receive_until(ws: WebSocketTestSession, message_type: str, limit: int = 20) -> dict[str, Any]:
@@ -27,3 +29,16 @@ def receive_compile(ws: WebSocketTestSession) -> dict[str, dict[str, Any]]:
         if message["type"] == "compile_status":
             return collected
     raise AssertionError("compile did not finish")
+
+
+def receive_compile_until(
+    ws: WebSocketTestSession,
+    done: Callable[[dict[str, dict[str, Any]]], bool],
+    limit: int = 10,
+) -> dict[str, dict[str, Any]]:
+    """Skip compile cycles queued by earlier changes until one satisfies `done`."""
+    for _ in range(limit):
+        cycle = receive_compile(ws)
+        if done(cycle):
+            return cycle
+    raise AssertionError(f"no matching compile cycle within {limit} cycles")

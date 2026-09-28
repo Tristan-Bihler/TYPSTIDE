@@ -7,6 +7,7 @@ select = ["E", "F", "W", "I", "N", "UP", "B", "ANN", "S", "SIM", "RUF", "PTH"]
 
 [lint.isort]
 known-first-party = ["typst_writer"]
+known-local-folder = ["helpers"]
 
 [lint.per-file-ignores]
 "backend/tests/**" = ["S101"]
