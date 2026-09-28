@@ -33,7 +33,19 @@ def app_url(tmp_path_factory: pytest.TempPathFactory) -> Iterator[str]:
     node = shutil.which("node")
     if node is None:
         pytest.fail("node is not on PATH")
-    env = {**os.environ, "TYPST_WRITER_HOME": str(tmp_path_factory.mktemp("app-home"))}
+    # A fake `claude` first on PATH: UI tests never reach a real model.
+    fake_bin = tmp_path_factory.mktemp("fake-bin")
+    fake = ROOT / "backend" / "tests" / "fakes" / "claude.py"
+    (fake_bin / "claude").write_text(
+        f"#!{sys.executable}\nimport runpy\nrunpy.run_path({str(fake)!r}, run_name='__main__')\n",
+        encoding="utf-8",
+    )
+    (fake_bin / "claude").chmod(0o755)
+    env = {
+        **os.environ,
+        "TYPST_WRITER_HOME": str(tmp_path_factory.mktemp("app-home")),
+        "PATH": f"{fake_bin}{os.pathsep}{os.environ.get('PATH', '')}",
+    }
     backend = subprocess.Popen(
         [sys.executable, "-m", "uvicorn", "typst_writer.main:app_factory", "--factory",
          "--host", "127.0.0.1", "--port", "8000"],
@@ -105,6 +117,10 @@ def page(browser: Browser, app_url: str, workspace: Path) -> Iterator[Page]:
     page = context.new_page()
     errors: list[str] = []
     page.on("pageerror", lambda e: errors.append(str(e)))
+    # Every test starts with both AI slots set to None (settings persist in the session).
+    context.request.put(
+        f"{app_url}/api/ai/settings", data={"local_model": None, "claude_model": None}
+    )
     page.goto(app_url)
     page.get_by_role("button", name="Open folder", exact=True).first.click()
     picker = page.locator(".folder-picker")

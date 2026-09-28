@@ -391,7 +391,11 @@ Use these skills when they are installed. At the start of a session, check which
   - Generated Typst follows the project skill `.claude/skills/typst-syntax/` (verified against 0.15.0; its example project is compiled in the tests). Key rules: escape `\ # $ * _ [ ] @ < > ` ~ /` and a leading `= - + 1.` in user text; image/bibliography paths root-relative (`/bilder/x.png`); labelled block equations use `#math.equation(..., numbering: "(1)")`.
   - Every snippet compiles in `backend/tests/test_snippets.py` (typical + hostile input, subfolder chapter); UI flows in `e2e/test_insert.py`.
 - [ ] Phase 2b – Chart snippet (CSV → plotting package) + Typst package download/caching — **deferred by the user** because this cloud environment blocks `packages.typst.org`. `DialogKind` already reserves `chart`.
-- [ ] Phase 3 – AI selector + Claude review
+- [x] Phase 3 – AI selector + Claude review
+  - **Claude runs through the `claude` CLI (user decision: no API keys, no `anthropic` SDK).** `adapters/claude_cli.py`: availability from `claude auth status --json` (cached 60 s); review via `claude -p --output-format json --json-schema … --tools "" --strict-mcp-config --no-session-persistence --model <alias> --system-prompt …`, text on stdin, empty temp dir as cwd, `ANTHROPIC_API_KEY` removed from its env, timeout `[claude] timeout_seconds`. The CLI's JSON envelope has `type/subtype/is_error/structured_output`. `--bare` cannot be used (it only accepts API keys).
+  - Providers return drafts; `services/review.py` applies `domain/review.py` (markup tokens must survive, `original` must occur exactly once, no overlaps; revised text rebuilt from kept changes). Offsets are **UTF-16** like CodeMirror. Claude slot `None` → `NoneProvider` (no changes, claude never started).
+  - AI settings/status are REST (`GET /api/ai/status`, `PUT /api/ai/settings`), not WebSocket; review is `POST /api/review` (plain JSON, not streamed — the CLI returns structured output at the end); leaving the page cancels it and kills the process. Settings in `<config dir>/settings.json`.
+  - Tests never call a model: `backend/tests/fakes/claude.py` is first on `PATH` in every backend test and for the e2e servers. One manual smoke test with the real CLI (`haiku`, ~13 s) confirmed the path.
 - [ ] Phase 4 – LTeX+ rule checks
 - [ ] Phase 5 – Local AI live check
 - [ ] Phase 6 – Polish
