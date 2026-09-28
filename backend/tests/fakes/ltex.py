@@ -22,7 +22,11 @@ MODE = os.environ.get("FAKE_LTEX_MODE", "ok")
 LOG = os.environ.get("FAKE_LTEX_LOG")
 
 MISSPELLED = {
-    "de-DE": {"Fehlr": ["Fehler"], "durchgefürt": ["durchgeführt", "durchgefüht"]},
+    "de-DE": {
+        "Fehlr": ["Fehler"],
+        "durchgefürt": ["durchgeführt", "durchgefüht"],
+        "Beispeil": ["Beispiel"],
+    },
     "en-US": {"teh": ["the"], "recieve": ["receive"]},
 }
 SPELLER = {"de-DE": "GERMAN_SPELLER_RULE", "en-US": "MORFOLOGIK_RULE_EN_US"}

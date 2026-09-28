@@ -41,9 +41,19 @@ def app_url(tmp_path_factory: pytest.TempPathFactory) -> Iterator[str]:
         encoding="utf-8",
     )
     (fake_bin / "claude").chmod(0o755)
+    # A fake LTeX+ "installation" whose java starts the fake language server.
+    ltex = tmp_path_factory.mktemp("ltex")
+    (ltex / "lib").mkdir()
+    java = ltex / "jdk-21" / "bin" / "java"
+    java.parent.mkdir(parents=True)
+    fake_ltex = ROOT / "backend" / "tests" / "fakes" / "ltex.py"
+    run = f"runpy.run_path({str(fake_ltex)!r}, run_name='__main__')"
+    java.write_text(f"#!{sys.executable}\nimport runpy\n{run}\n", encoding="utf-8")
+    java.chmod(0o755)
     env = {
         **os.environ,
         "TYPST_WRITER_HOME": str(tmp_path_factory.mktemp("app-home")),
+        "TYPST_WRITER_LTEX_DIR": str(ltex),
         "PATH": f"{fake_bin}{os.pathsep}{os.environ.get('PATH', '')}",
     }
     backend = subprocess.Popen(
@@ -121,6 +131,7 @@ def page(browser: Browser, app_url: str, workspace: Path) -> Iterator[Page]:
     context.request.put(
         f"{app_url}/api/ai/settings", data={"local_model": None, "claude_model": None}
     )
+    context.request.put(f"{app_url}/api/grammar/settings", data={"language": "de-DE"})
     page.goto(app_url)
     page.get_by_role("button", name="Open folder", exact=True).first.click()
     picker = page.locator(".folder-picker")
