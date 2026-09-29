@@ -286,10 +286,16 @@ def _file_defaults(text: str, before: int | None) -> Current:
     return Current(font, size, leading)
 
 
-def current(text: str, offset: int, main_text: str | None) -> Current:
+def current(text: str, offset: int, main_text: str | None, end: int | None = None) -> Current:
     """Font, size and leading in effect at `offset`: the innermost `#text(...)` and
     spacing blocks around it, then the file's own set rules before it, then the main
-    file's (`main_text`, when this is a chapter)."""
+    file's (`main_text`, when this is a chapter). For a selection [offset, end) that is
+    exactly one `#text(...)[...]`, its own arguments count."""
+    if end is not None and end > offset:
+        start, stop = _trim(text, offset, end)
+        call = _single_text_call(text[start:stop])
+        if call is not None:
+            offset = start + call[0] + 1  # inside its content block
     prose = scan(text)
     font = size = leading = None
     frame = frame_at(prose, offset)

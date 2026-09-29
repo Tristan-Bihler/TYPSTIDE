@@ -5,6 +5,10 @@ import type {
   AISettings,
   CheckerStatus,
   CompletionItem,
+  CurrentFormat,
+  FormatChange,
+  FormatOptions,
+  TextEdit,
   DirListing,
   EntryPath,
   FileContent,
@@ -130,6 +134,13 @@ export const api = {
   saveUiSettings: (settings: UiSettings): Promise<UiSettings> => request("PUT", "/api/settings/ui", settings),
   openTabs: (): Promise<OpenTabs> => request("GET", "/api/workspace/tabs"),
   saveOpenTabs: (tabs: OpenTabs): Promise<OpenTabs> => request("PUT", "/api/workspace/tabs", tabs),
+  formatOptions: (): Promise<FormatOptions> => request("GET", "/api/format/options"),
+  formatSelection: (content: string, start: number, end: number, change: FormatChange): Promise<TextEdit> =>
+    request("POST", "/api/format/apply", { content, start, end, change }),
+  formatDocument: (content: string, change: FormatChange): Promise<TextEdit> =>
+    request("POST", "/api/format/document", { content, change }),
+  currentFormat: (content: string, offset: number, mainContent: string | null, end: number | null = null): Promise<CurrentFormat> =>
+    request("POST", "/api/format/current", { content, offset, end, main_content: mainContent }),
   completionStatus: (): Promise<CheckerStatus> => request("GET", "/api/completion"),
   installCompletion: (): Promise<CheckerStatus> => request("POST", "/api/completion/install"),
   complete: (path: string, content: string, offset: number, signal: AbortSignal): Promise<CompletionItem[]> =>

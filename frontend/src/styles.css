@@ -180,6 +180,7 @@ select {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
   padding: 6px 10px;
   min-height: 44px;
 }
@@ -1172,9 +1173,11 @@ select {
 /* ---- insert toolbar ------------------------------------------------------------- */
 
 .insert-toolbar {
+  flex: 0 1 auto;
+  min-width: 0; /* shrink (and scroll) instead of pushing the settings button out */
   flex-wrap: nowrap;
   overflow-x: auto;
-  scrollbar-width: none;
+  scrollbar-width: thin;
 }
 
 .tool[data-snippet="bold"] span {
@@ -1192,6 +1195,185 @@ select {
   border-left: 4px solid transparent;
   border-right: 4px solid transparent;
   border-top: 5px solid var(--pencil);
+}
+
+/* ---- format controls (font, size, line spacing) ------------------------------------ */
+
+/* They show a value, so they read as fields: a quiet outline the action buttons lack. */
+.format-host {
+  display: flex;
+  flex: none;
+}
+
+.format-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-right: 8px;
+  margin-right: 6px;
+  border-right: 1px solid var(--rule);
+}
+
+.tool.format-control {
+  gap: 6px;
+  padding: 0 8px;
+  border-color: var(--rule);
+  background: var(--paper);
+}
+
+.tool.format-control:hover:not(:disabled) {
+  border-color: var(--pencil);
+  background: var(--paper);
+}
+
+.format-value {
+  font-variant-numeric: tabular-nums;
+}
+
+.format-font {
+  width: 136px;
+}
+
+.format-font-name {
+  flex: 1;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+}
+
+.format-size {
+  min-width: 56px;
+}
+
+.format-spacing-icon {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 11px;
+}
+
+.format-spacing-icon span {
+  height: 1.5px;
+  border-radius: 1px;
+  background: var(--pencil);
+}
+
+.format-popup {
+  position: fixed;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  min-width: 170px;
+  max-width: 300px;
+  padding: 6px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: var(--paper);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+.format-popup:has(.format-section) {
+  width: 280px;
+}
+
+.format-target {
+  margin: 2px 6px 6px;
+  color: var(--pencil);
+  font-size: 12px;
+}
+
+.format-input {
+  height: 28px;
+  margin: 0 2px 6px;
+  padding: 0 8px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.format-input:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.format-list {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.format-section {
+  margin: 8px 8px 4px;
+  color: var(--pencil);
+  font-size: 11.5px;
+}
+
+.format-section:first-child {
+  margin-top: 2px;
+}
+
+.format-option {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 30px;
+  padding: 4px 10px 4px 24px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  position: relative;
+}
+
+.format-option-label {
+  overflow: hidden;
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.format-option-hint {
+  flex: none;
+  color: var(--pencil);
+  font-size: 12px;
+}
+
+.format-option:hover,
+.format-option:focus-visible {
+  background: var(--accent-wash);
+  outline: none;
+}
+
+.format-option[aria-selected="true"]::before {
+  content: "";
+  position: absolute;
+  left: 9px;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  transform: translateY(-50%);
+}
+
+.format-empty {
+  margin: 8px;
+  color: var(--pencil);
+}
+
+/* Laptop widths: tighter tools so the whole row fits down to 1280 px. */
+@media (max-width: 1400px) {
+  .insert-toolbar .tool {
+    padding: 0 7px;
+  }
+
+  .format-font {
+    width: 112px;
+  }
 }
 
 /* Narrow windows: file actions become icon-only (names stay in title/aria-label). */

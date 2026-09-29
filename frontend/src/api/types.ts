@@ -101,6 +101,30 @@ export interface CompletionItem {
   end: number;
 }
 
+// --- format controls (font, size, line spacing) ---------------------------------
+
+export interface FormatOptions {
+  fonts: { family: string; builtin: boolean }[];
+  sizes: number[];
+  default_size: number;
+  default_font: string;
+  line_spacing: { label: string; leading: string; default: boolean }[];
+}
+
+export type FormatChange = { kind: "font" | "size" | "line_spacing"; value: string };
+
+export interface TextEdit {
+  start: number; // UTF-16, like the editor
+  end: number;
+  insert: string;
+}
+
+export interface CurrentFormat {
+  font: string | null;
+  size: string | null; // e.g. "14pt"
+  leading: string | null; // e.g. "1.05em"
+}
+
 // --- look and editor behaviour ---------------------------------------------------------
 
 export type Theme = "system" | "light" | "dark";

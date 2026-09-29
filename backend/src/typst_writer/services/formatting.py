@@ -83,6 +83,7 @@ class CurrentFormatRequest(BaseModel):
 
     content: str = Field(max_length=MAX_CONTENT)
     offset: int = Field(ge=0)
+    end: int | None = Field(default=None, ge=0)  # a selection [offset, end)
     main_content: str | None = Field(default=None, max_length=MAX_CONTENT)
 
 
@@ -176,6 +177,8 @@ class FormattingService:
         return self._to_utf16(req.content, edit)
 
     def current(self, req: CurrentFormatRequest) -> CurrentFormat:
-        index = TextPositions(req.content).index_of_utf16(req.offset)
-        found: Current = formatting.current(req.content, index, req.main_content)
+        positions = TextPositions(req.content)
+        index = positions.index_of_utf16(req.offset)
+        end = None if req.end is None else positions.index_of_utf16(req.end)
+        found: Current = formatting.current(req.content, index, req.main_content, end)
         return CurrentFormat(font=found.font, size=found.size, leading=found.leading)

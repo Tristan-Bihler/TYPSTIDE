@@ -196,6 +196,11 @@ def test_current_values_at_the_cursor() -> None:
     inner = current(chapter, chapter.index("D"), main)
     assert (inner.font, inner.size, inner.leading) == ("X", "16pt", "1.05em")
     assert current("Text", 2, None).__dict__ == {"font": None, "size": None, "leading": None}
+    # A selected #text(...)[...] reports its own arguments.
+    call = '#text(size: 16pt, font: "X")[D]'
+    text = f"A {call} B"
+    selected = current(text, text.index(call), None, text.index(call) + len(call))
+    assert (selected.font, selected.size) == ("X", "16pt")
 
 
 # --- API --------------------------------------------------------------------------------

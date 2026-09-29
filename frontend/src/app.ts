@@ -98,6 +98,8 @@ export class App implements Actions {
       store: this.store,
       editor: this.editor,
       overlays: () => this.overlays(),
+      openDoc: (path) => this.openDoc(path),
+      notify: (text) => this.notice(text, 4000),
     }).catch((error: unknown) => {
       void showMessage("Could not load the insert toolbar", errorText(error));
     });
