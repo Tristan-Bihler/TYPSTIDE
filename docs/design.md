@@ -70,3 +70,11 @@ with reduced motion).
 Autocomplete list: names in the source font, the signature or caption in `--pencil` on the
 right (one line, ellipsis), the selected row in `--accent-wash`, matched letters in
 `--accent`. Labels get an `@` icon.
+
+
+Format controls (font, size, line spacing): they show a value, so unlike the action buttons
+they read as fields — a 1px `--rule` outline on `--paper`. The font name is set in its own
+face. Popups share one style: a small `--pencil` line saying what the change applies to
+("Selected text", "The selected paragraphs", "Whole document (main.typ)"), an optional
+search/size field, sections in sentence case, the current value marked with a small
+`--accent` dot.
