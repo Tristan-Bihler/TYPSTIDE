@@ -360,6 +360,21 @@ def _checks(
         _expect(snippets and grammar and completion and "claude" in json.dumps(claude))
         return f"{len(snippets)} snippets, LTeX+ {grammar}, Tinymist {completion}"
 
+    def fonts() -> str:
+        options = http.get("/api/format/options").json()  # reads the installed fonts
+        families = {f["family"]: f["builtin"] for f in options["fonts"]}
+        _expect(families.get("Libertinus Serif") is True, "built-in fonts missing")
+        installed = sum(1 for builtin in families.values() if not builtin)
+        body = {
+            "content": "Ein Wort.",
+            "start": 4,
+            "end": 8,
+            "change": {"kind": "size", "value": "14"},
+        }
+        edit = http.post("/api/format/apply", json=body).json()
+        _expect(edit.get("insert") == "#text(size: 14pt)[Wort]", edit)
+        return f"{len(families) - installed} built-in, {installed} installed fonts"
+
     return [
         ("health", health),
         ("frontend", frontend),
@@ -368,6 +383,7 @@ def _checks(
         ("live preview", lambda: _check_live(origin)),
         ("pdf export", export),
         ("statuses", statuses),
+        ("fonts", fonts),
     ]
 
 
