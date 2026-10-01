@@ -749,6 +749,12 @@ export class App implements Actions {
           store: this.store,
           host: this.plannerHost,
           onClosed: () => this.hidePlanner(),
+          targetFile: () => {
+            const { active, workspace } = this.store.get();
+            return active?.endsWith(".typ") ? active : (workspace?.main ?? null);
+          },
+          insert: (path, line) => this.insertLine(path, line),
+          notify: (text) => this.notice(text, 4000),
         });
       }
       this.plannerHost.hidden = false;
@@ -771,6 +777,24 @@ export class App implements Actions {
     if (this.store.get().planner === null) return;
     this.hidePlanner();
     await this.planner?.close();
+  }
+
+  /** Put `line` into `path` as its own line: below the cursor's line if the file was
+   * open, else at the end. Shows the file. */
+  private async insertLine(path: string, line: string): Promise<boolean> {
+    const wasOpen = this.store.get().docs.some((d) => d.path === path);
+    await this.closePlanner();
+    await this.openDoc(path);
+    const state = this.editor.activeState();
+    if (state === null || this.store.get().active !== path) return false;
+    const at = state.doc.lineAt(wasOpen ? state.selection.main.head : state.doc.length);
+    const insert = `${at.length === 0 ? "" : "\n"}${line}\n`;
+    return this.editor.apply({
+      changes: { from: at.to, insert },
+      selection: { anchor: at.to + insert.length },
+      scrollIntoView: true,
+      userEvent: "input",
+    });
   }
 
   async showPlans(anchor: HTMLElement): Promise<void> {

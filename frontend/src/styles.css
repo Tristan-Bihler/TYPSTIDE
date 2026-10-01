@@ -2113,3 +2113,320 @@ select {
   font-size: 12px;
   pointer-events: none;
 }
+
+.planner-header {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+
+.planner-tools .segmented {
+  margin-right: 8px;
+}
+
+.planner-body {
+  position: relative;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.plan-stage[hidden],
+.plan-next[hidden] {
+  display: none;
+}
+
+.plan-zoom {
+  position: absolute;
+  right: 10px;
+  bottom: 8px;
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--paper);
+}
+
+.plan-zoom .tool {
+  height: 26px;
+}
+
+.plan-hint {
+  right: 140px;
+}
+
+/* Next: a reading list, not cards. */
+.plan-next {
+  overflow-y: auto;
+  padding: 18px 24px 32px;
+  background: var(--paper);
+}
+
+.next-heading {
+  margin: 0 0 8px;
+  color: var(--pencil);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.next-heading:not(:first-child) {
+  margin-top: 24px;
+}
+
+.next-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--rule);
+}
+
+.next-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.next-item.selected .next-title {
+  color: var(--accent);
+}
+
+.next-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.next-title:hover {
+  text-decoration: underline;
+}
+
+.next-list:not(.waiting) .next-item:first-child .next-title {
+  font-weight: 600;
+}
+
+.next-status {
+  flex: none;
+  color: var(--pencil);
+  font-size: 12px;
+}
+
+.next-status.doing {
+  color: var(--accent);
+}
+
+.next-item .button {
+  flex: none;
+  height: 26px;
+  padding: 0 10px;
+}
+
+.waiting .next-title {
+  color: var(--pencil);
+  font-size: 13px;
+}
+
+.next-waits {
+  flex: 0 1 auto;
+  min-width: 0;
+  color: var(--pencil);
+  font-size: 12px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.next-empty,
+.next-done {
+  color: var(--pencil);
+}
+
+.next-done {
+  margin-top: 24px;
+  font-size: 12px;
+}
+
+/* Step details: a sheet over the right side of the canvas or list. */
+.step-details {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: min(340px, 82%);
+  padding: 12px 14px 14px;
+  overflow-y: auto;
+  border-left: 1px solid var(--rule);
+  background: var(--paper);
+  box-shadow: -6px 0 18px rgba(0, 0, 0, 0.08);
+}
+
+.step-details[hidden] {
+  display: none;
+}
+
+.step-details-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.step-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.step-field {
+  display: grid;
+  gap: 6px;
+}
+
+.step-label {
+  color: var(--pencil);
+  font-size: 12px;
+}
+
+.step-status {
+  justify-self: start;
+}
+
+.step-dependencies {
+  display: grid;
+  gap: 2px;
+  max-height: 168px;
+  overflow-y: auto;
+}
+
+.step-dependency {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+  cursor: pointer;
+}
+
+.step-dependency span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.step-dependency.done span {
+  color: var(--pencil);
+}
+
+.step-dependency.blocked {
+  color: var(--pencil);
+  cursor: not-allowed;
+}
+
+.step-hint {
+  margin: 0;
+  color: var(--pencil);
+}
+
+.step-notes {
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--paper);
+}
+
+.step-notes:focus-within {
+  border-color: var(--accent);
+}
+
+.step-notes .cm-editor {
+  min-height: 96px;
+  max-height: 260px;
+  font-family: var(--font-source);
+  font-size: 13px;
+}
+
+.step-notes .cm-editor.cm-focused {
+  outline: none;
+}
+
+.step-notes .cm-scroller {
+  overflow: auto;
+}
+
+.step-notes .cm-content {
+  padding: 6px 2px;
+}
+
+/* The rendered notes: a strip of real paper. */
+.note-rendered {
+  padding: 4px;
+  background: var(--desk);
+  border-radius: var(--radius);
+}
+
+.note-rendered[hidden] {
+  display: none;
+}
+
+.note-rendered img {
+  display: block;
+  width: 100%;
+  background: #ffffff;
+  box-shadow: var(--page-shadow);
+}
+
+.note-problems {
+  margin: -6px 0 0;
+  color: var(--error);
+  font-size: 12px;
+}
+
+.note-problems:empty {
+  display: none;
+}
+
+.step-details-foot {
+  margin-top: auto;
+  padding-top: 6px;
+}
+
+.step-delete {
+  color: var(--error);
+}
+
+.include-dialog {
+  width: min(620px, calc(100vw - 32px));
+}
+
+.include-line {
+  margin: 0 0 4px;
+  padding: 10px 12px;
+  overflow-x: auto;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--chrome);
+  font-family: var(--font-source);
+  font-size: 12.5px;
+  white-space: pre;
+}
+
+.planner-body {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+/* The Next list stays usable next to the details sheet. */
+.plan-next.beside-details {
+  padding-right: calc(min(340px, 82%) + 24px);
+}

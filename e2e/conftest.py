@@ -173,6 +173,7 @@ def page(browser: Browser, app_url: str, workspace: Path) -> Iterator[Page]:
         "autosave": False,
         "autosave_delay_ms": 2000,
         "preview_follows_cursor": True,
+        "planner_enabled": False,
     }
     context.request.put(f"{app_url}/api/settings/ui", data=ui, headers=app)
     page.goto(app_url)

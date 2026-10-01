@@ -3,17 +3,22 @@
 // was based on; if the plan changed elsewhere meanwhile, it is reloaded instead.
 
 import { ApiError, api } from "../api/client";
-import type { Plan, PlanDocument } from "../api/types";
+import type { Plan, PlanDocument, Step } from "../api/types";
 import type { AppState, Store } from "../state/store";
 import { promptText, showMessage } from "../ui/dialog";
 import { el } from "../ui/dom";
 import { iconNode, icons } from "../ui/icons";
 import { PlanCanvas } from "./canvas";
-import { addStep, toggleDependency, withPositions } from "./model";
+import { StepDetails } from "./details";
+import { showExportMenu, type ExportContext } from "./exportMenu";
+import { addStep, removeStep, toggleDependency, updateStep, withPositions } from "./model";
+import { renderNext } from "./next";
 
 const DRAG_SAVE_MS = 600;
 
-export interface PlannerContext {
+type Mode = "canvas" | "next";
+
+export interface PlannerContext extends Omit<ExportContext, "flush"> {
   store: Store<AppState>;
   host: HTMLElement;
   /** The planner closed itself (Close button, plan deleted). */
@@ -36,6 +41,11 @@ export class PlannerView {
   private readonly title: HTMLInputElement;
   private readonly summary: HTMLElement;
   private readonly empty: HTMLElement;
+  private readonly stage: HTMLElement;
+  private readonly nextHost: HTMLElement;
+  private readonly details: StepDetails;
+  private readonly modes = new Map<Mode, HTMLInputElement>();
+  private mode: Mode = "canvas";
   private readonly unsubscribe: () => void;
   private readonly media = window.matchMedia("(prefers-color-scheme: dark)");
   private readonly restyle = (): void => {
@@ -51,14 +61,20 @@ export class PlannerView {
     });
     this.summary = el("span", { class: "plan-summary" });
 
+    const modes = el("div", { class: "segmented planner-modes", role: "radiogroup", "aria-label": "View" });
+    for (const [value, label] of [["canvas", "Canvas"], ["next", "Next"]] as const) {
+      const input = el("input", { type: "radio", name: "planner-mode", value });
+      input.checked = value === this.mode;
+      input.addEventListener("change", () => this.setMode(value));
+      this.modes.set(value, input);
+      modes.append(el("label", { class: "segment" }, input, el("span", {}, label)));
+    }
     const add = el("button", { type: "button", class: "button primary", title: "Add a step after the selected one" }, "Add step");
     add.addEventListener("click", () => void this.addStep());
-    const zoomOut = el("button", { type: "button", class: "tool icon-only", title: "Zoom out", "aria-label": "Zoom out" }, "−");
-    zoomOut.addEventListener("click", () => this.canvas.zoomBy(1 / 1.25));
-    const zoomIn = el("button", { type: "button", class: "tool icon-only", title: "Zoom in", "aria-label": "Zoom in" }, "+");
-    zoomIn.addEventListener("click", () => this.canvas.zoomBy(1.25));
-    const fit = el("button", { type: "button", class: "tool", title: "Show the whole plan" }, "Fit");
-    fit.addEventListener("click", () => this.canvas.fit());
+    const exportButton = el("button", { type: "button", class: "tool", "aria-haspopup": "menu", title: "Export the plan" }, "Export");
+    exportButton.addEventListener("click", () => {
+      if (this.doc !== null) showExportMenu(exportButton, this.doc, { ...this.ctx, flush: () => this.flush() });
+    });
     const close = el("button", { type: "button", class: "tool icon-only", title: "Close the planner", "aria-label": "Close the planner" }, iconNode(icons.close));
     close.addEventListener("click", () => void this.close().then(() => this.ctx.onClosed()));
 
@@ -66,8 +82,16 @@ export class PlannerView {
       "div",
       { class: "planner-header" },
       el("div", { class: "planner-heading" }, this.title, this.summary),
-      el("div", { class: "planner-tools" }, add, el("span", { class: "tool-divider", role: "presentation" }), zoomOut, zoomIn, fit, close),
+      el("div", { class: "planner-tools" }, modes, add, exportButton, close),
     );
+
+    const zoomOut = el("button", { type: "button", class: "tool icon-only", title: "Zoom out", "aria-label": "Zoom out" }, "−");
+    zoomOut.addEventListener("click", () => this.canvas.zoomBy(1 / 1.25));
+    const zoomIn = el("button", { type: "button", class: "tool icon-only", title: "Zoom in", "aria-label": "Zoom in" }, "+");
+    zoomIn.addEventListener("click", () => this.canvas.zoomBy(1.25));
+    const fit = el("button", { type: "button", class: "tool", title: "Show the whole plan" }, "Fit");
+    fit.addEventListener("click", () => this.canvas.fit());
+    const zoom = el("div", { class: "plan-zoom", role: "toolbar", "aria-label": "Zoom" }, zoomOut, zoomIn, fit);
 
     const canvasHost = el("div", { class: "plan-canvas", "aria-label": "Plan canvas" });
     const addFirst = el("button", { type: "button", class: "button primary" }, "Add the first step");
@@ -79,8 +103,22 @@ export class PlannerView {
       addFirst,
     );
     const hint = el("p", { class: "plan-hint" }, "Drag to arrange. Shift-click a step, then another: the second waits for the first.");
-    const stage = el("div", { class: "plan-stage" }, canvasHost, this.empty, hint);
-    ctx.host.replaceChildren(header, el("div", { class: "planner-body" }, stage));
+    this.stage = el("div", { class: "plan-stage" }, canvasHost, this.empty, hint, zoom);
+    this.nextHost = el("div", { class: "plan-next" });
+    this.nextHost.hidden = true;
+    this.details = new StepDetails({
+      change: (id, patch, delay) => {
+        if (this.plan !== null) this.change(updateStep(this.plan, id, patch), delay);
+      },
+      toggleDependency: (id, dependency) => this.toggleDependency(id, dependency),
+      remove: (id) => {
+        if (this.plan === null) return;
+        this.selected = null;
+        this.change(removeStep(this.plan, id));
+      },
+      close: () => this.select(null),
+    });
+    ctx.host.replaceChildren(header, el("div", { class: "planner-body" }, this.stage, this.nextHost, this.details.element));
 
     this.canvas = new PlanCanvas(canvasHost, {
       onSelect: (id) => this.select(id),
@@ -103,11 +141,17 @@ export class PlannerView {
 
   async open(name: string): Promise<void> {
     await this.close();
-    this.doc = await api.readPlan(name);
-    this.plan = this.doc.plan;
+    await this.load(name);
     this.selected = null;
     this.render();
     this.canvas.fit();
+  }
+
+  /** Show the plan as it is on disk (no flush: also used while a save fails). */
+  private async load(name: string): Promise<void> {
+    this.doc = await api.readPlan(name);
+    this.plan = this.doc.plan;
+    if (this.selected !== null && !this.plan.steps.some((s) => s.id === this.selected)) this.selected = null;
   }
 
   /** The plan file may have changed elsewhere: reload it unless a change is pending. */
@@ -136,6 +180,7 @@ export class PlannerView {
 
   destroy(): void {
     window.clearTimeout(this.saveTimer);
+    this.details.destroy();
     this.unsubscribe();
     this.media.removeEventListener("change", this.restyle);
     this.resizeObserver.disconnect();
@@ -189,7 +234,8 @@ export class PlannerView {
     if (error instanceof ApiError && (error.code === "plan_conflict" || error.code === "invalid_plan")) {
       this.dirty = false;
       try {
-        await this.open(name);
+        await this.load(name);
+        this.render();
       } catch {
         // shown below
       }
@@ -215,6 +261,29 @@ export class PlannerView {
   private select(id: string | null): void {
     this.selected = id;
     this.canvas.select(id);
+    this.render();
+  }
+
+  private setMode(mode: Mode): void {
+    this.mode = mode;
+    for (const [value, input] of this.modes) input.checked = value === mode;
+    this.stage.hidden = mode !== "canvas";
+    this.nextHost.hidden = mode !== "next";
+    if (mode === "canvas") {
+      this.canvas.resize();
+      if (this.selected !== null) this.canvas.reveal(this.selected);
+    }
+    this.render();
+  }
+
+  private toggleDependency(id: string, dependency: string): void {
+    if (this.plan === null) return;
+    const next = toggleDependency(this.plan, id, dependency);
+    if (next === null) {
+      this.render(); // undo the checkbox
+      return;
+    }
+    this.change(next);
   }
 
   private async addStep(): Promise<void> {
@@ -256,5 +325,17 @@ export class PlannerView {
     this.summary.title = this.doc.path;
     this.empty.hidden = plan.steps.length > 0;
     this.canvas.render(plan, this.selected);
+    if (this.mode === "next") {
+      renderNext(this.nextHost, plan, this.selected, {
+        select: (id) => this.select(id),
+        setStatus: (id, status) => this.setStatus(id, status),
+      });
+    }
+    this.details.show(plan, this.selected);
+    this.nextHost.classList.toggle("beside-details", this.selected !== null);
+  }
+
+  private setStatus(id: string, status: Step["status"]): void {
+    if (this.plan !== null) this.change(updateStep(this.plan, id, { status }));
   }
 }
