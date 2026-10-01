@@ -18,6 +18,7 @@ export const icons = {
   spelling: svg('<path d="M3 9.5l2.5-6.5 2.5 6.5M3.9 7.3h3.2"/><path d="M1.5 13c1.1-1 2.1 1 3.2 0s2.1 1 3.2 0 2.1 1 3.2 0 2.1 1 3.4 0"/>'),
   localAi: svg('<path d="M8 2l1.4 3.6L13 7l-3.6 1.4L8 12l-1.4-3.6L3 7l3.6-1.4z"/><path d="M12.5 11.5l.6 1.4 1.4.6-1.4.6-.6 1.4-.6-1.4-1.4-.6 1.4-.6z"/>'),
   settings: svg('<circle cx="8" cy="8" r="2.2"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"/>'),
+  plans: svg('<rect x="1.5" y="2" width="5" height="3.5" rx="1"/><rect x="9.5" y="2" width="5" height="3.5" rx="1"/><rect x="5.5" y="10.5" width="5" height="3.5" rx="1"/><path d="M4 5.5v2.5h4v2.5M12 5.5v2.5H8"/>'),
   up: svg('<path d="M8 13V3M4 7l4-4 4 4"/>'),
 };
 

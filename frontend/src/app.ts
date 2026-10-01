@@ -22,9 +22,10 @@ import { applyTheme, openSettings } from "./settings/dialog";
 import { wordsSection } from "./settings/words";
 import { ignoreKey } from "./suggestions/layer";
 import { suggestionProblems } from "./suggestions/problems";
-import { showContextMenu } from "./ui/contextMenu";
+import { showContextMenu, type MenuItem } from "./ui/contextMenu";
 import { chooseAction, confirmAction, promptText, showMessage } from "./ui/dialog";
-import { basename } from "./ui/dom";
+import { basename, el } from "./ui/dom";
+import type { PlannerView } from "./planner/view";
 
 // Keep in sync with [timing] in config.toml.
 const DOC_CHANGED_DEBOUNCE_MS = 300;
@@ -67,6 +68,9 @@ export class App implements Actions {
   private desktop: DesktopBridge | null = null;
   /** "path:offset" of the block the preview last followed (resent only when it changes). */
   private followed = "";
+  /** The planner (loaded on first use, with Cytoscape); shown over the editor while open. */
+  private planner: PlannerView | null = null;
+  private readonly plannerHost: HTMLElement;
 
   constructor(root: HTMLElement) {
     const shell = buildShell(root);
@@ -94,6 +98,13 @@ export class App implements Actions {
           : Promise.resolve([]),
     });
     this.editor.show(null);
+    this.plannerHost = el("div", { class: "planner", role: "region", "aria-label": "Planner" });
+    this.plannerHost.hidden = true;
+    shell.editor.append(this.plannerHost);
+    // Turning the planner off closes it.
+    this.store.subscribe((state, previous) => {
+      if (!state.ui.planner_enabled && previous.ui.planner_enabled) void this.closePlanner();
+    });
     mountInsertToolbar(insertHost, {
       store: this.store,
       editor: this.editor,
@@ -202,9 +213,13 @@ export class App implements Actions {
       case "workspace_changed": {
         const previous = this.store.get().workspace;
         const otherFolder = previous?.root !== message.workspace?.root;
-        if (message.reopened && otherFolder) this.resetDocs();
+        if (message.reopened && otherFolder) {
+          this.resetDocs();
+          void this.closePlanner();
+        }
         this.store.set({ workspace: message.workspace });
         void this.reloadTree();
+        void this.planner?.refresh();
         if (message.reopened && otherFolder && message.workspace !== null) void this.restoreTabs();
         break;
       }
@@ -430,6 +445,7 @@ export class App implements Actions {
   }
 
   activate(path: string): void {
+    if (this.store.get().planner !== null) void this.closePlanner();
     this.store.set({ active: path });
     this.editor.show(path);
     this.editor.setProblems(this.store.get().problems);
@@ -720,6 +736,78 @@ export class App implements Actions {
     if (problem.file === "" || !isTextFile(problem.file)) return;
     await this.openDoc(problem.file);
     if (problem.line > 0) this.editor.jumpTo(problem.line, problem.column);
+  }
+
+  // --- planner -----------------------------------------------------------------------
+
+  async openPlan(name: string): Promise<void> {
+    if (!this.store.get().ui.planner_enabled) return;
+    try {
+      if (this.planner === null) {
+        const { PlannerView } = await import("./planner/view");
+        this.planner ??= new PlannerView({
+          store: this.store,
+          host: this.plannerHost,
+          onClosed: () => this.hidePlanner(),
+        });
+      }
+      this.plannerHost.hidden = false;
+      await this.planner.open(name);
+      this.store.set({ planner: name });
+    } catch (error) {
+      this.hidePlanner();
+      await showMessage("Could not open the plan", errorText(error));
+    }
+  }
+
+  private hidePlanner(): void {
+    this.plannerHost.hidden = true;
+    this.store.set({ planner: null });
+    this.editor.focus();
+  }
+
+  /** Save what is pending and show the editor again. */
+  async closePlanner(): Promise<void> {
+    if (this.store.get().planner === null) return;
+    this.hidePlanner();
+    await this.planner?.close();
+  }
+
+  async showPlans(anchor: HTMLElement): Promise<void> {
+    let plans;
+    try {
+      plans = await api.plans();
+    } catch (error) {
+      await showMessage("Could not list the plans", errorText(error));
+      return;
+    }
+    const items: (MenuItem | "separator")[] = plans.map((plan) => ({
+      label: plan.error === null ? `${plan.title}   ${plan.done}/${plan.steps}` : plan.name,
+      action: () => void this.openPlan(plan.name),
+      ...(plan.error === null ? {} : { disabledReason: plan.error }),
+    }));
+    if (items.length > 0) items.push("separator");
+    items.push({ label: "New plan…", action: () => void this.newPlan() });
+    const rect = anchor.getBoundingClientRect();
+    showContextMenu(rect.left, rect.bottom + 4, items);
+  }
+
+  private async newPlan(): Promise<void> {
+    const title = await promptText({
+      title: "New plan",
+      label: "What is the task?",
+      value: "",
+      confirmLabel: "Create plan",
+      validate: (value) => (value === "" ? "Give the plan a title." : value.length > 200 ? "At most 200 characters." : null),
+    });
+    if (title === null) return;
+    try {
+      const plan = await api.createPlan(title);
+      await this.reloadTree();
+      await this.openPlan(plan.name);
+    } catch (error) {
+      await showMessage("Could not create the plan", errorText(error));
+    }
   }
 
   setLanguage(language: Language): void {

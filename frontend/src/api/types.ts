@@ -134,6 +134,7 @@ export interface UiSettings {
   autosave: boolean;
   autosave_delay_ms: number;
   preview_follows_cursor: boolean;
+  planner_enabled: boolean;
 }
 
 export interface OpenTabs {
@@ -253,4 +254,55 @@ export interface ReviewResult {
   explanation: string;
   changes: Suggestion[];
   dropped: number;
+}
+
+// --- Planner (api/planner.py, services/planner.py, domain/planner.py) --------------
+
+export type StepStatus = "todo" | "doing" | "done";
+
+export interface Step {
+  id: string;
+  title: string;
+  status: StepStatus;
+  notes: string; // Typst markup
+  depends_on: string[];
+  x: number | null;
+  y: number | null;
+}
+
+export interface Plan {
+  version: 1;
+  title: string;
+  steps: Step[];
+}
+
+export interface PlanSummary {
+  name: string;
+  path: string;
+  title: string;
+  steps: number;
+  done: number;
+  error: string | null;
+}
+
+export type PlanExportKind = "typst" | "plantuml";
+
+export interface PlanDocument {
+  name: string;
+  path: string;
+  plan: Plan;
+  revision: string;
+  exports: PlanExportKind[];
+}
+
+export interface PlanExportResult {
+  path: string;
+  include: string | null;
+}
+
+export interface NoteRender {
+  ok: boolean;
+  pages: string[];
+  problems: Problem[];
+  duration_ms: number;
 }

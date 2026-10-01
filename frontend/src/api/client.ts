@@ -14,7 +14,13 @@ import type {
   FileContent,
   GrammarOverview,
   GrammarSettings,
+  NoteRender,
   OpenTabs,
+  Plan,
+  PlanDocument,
+  PlanExportKind,
+  PlanExportResult,
+  PlanSummary,
   Problem,
   ReviewRequest,
   ReviewResult,
@@ -156,6 +162,16 @@ export const api = {
       "DELETE",
       `/api/grammar/dictionary?${new URLSearchParams({ language, word }).toString()}`,
     ),
+  plans: (): Promise<PlanSummary[]> => request("GET", "/api/planner/plans"),
+  createPlan: (title: string): Promise<PlanDocument> => request("POST", "/api/planner/plans", { title }),
+  readPlan: (name: string): Promise<PlanDocument> => request("GET", `/api/planner/plans/${encodeURIComponent(name)}`),
+  savePlan: (name: string, plan: Plan, baseRevision: string): Promise<PlanDocument> =>
+    request("PUT", `/api/planner/plans/${encodeURIComponent(name)}`, { plan, base_revision: baseRevision }),
+  deletePlan: (name: string): Promise<EntryPath> => request("DELETE", `/api/planner/plans/${encodeURIComponent(name)}`),
+  exportPlan: (name: string, kind: PlanExportKind, overwrite = false): Promise<PlanExportResult> =>
+    request("POST", `/api/planner/plans/${encodeURIComponent(name)}/export`, { kind, overwrite }),
+  renderNote: (source: string, signal: AbortSignal): Promise<NoteRender> =>
+    request("POST", "/api/planner/render-note", { source }, signal),
 
   async exportPdf(overlays: Record<string, string>): Promise<{ blob: Blob; filename: string }> {
     const response = await fetch("/api/export/pdf", {

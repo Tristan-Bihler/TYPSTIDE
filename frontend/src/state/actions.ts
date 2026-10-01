@@ -22,6 +22,9 @@ export interface Actions {
   installGrammar(): Promise<void>;
   installCompletion(): Promise<void>;
   openSettings(): void;
+  /** Planner extension (only offered while it is turned on). */
+  openPlan(name: string): Promise<void>;
+  showPlans(anchor: HTMLElement): Promise<void>;
 }
 
 /** File types the editor opens (mirrors TEXT_EXTENSIONS in services/workspace.py). */

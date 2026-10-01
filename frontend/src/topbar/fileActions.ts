@@ -29,7 +29,14 @@ export function mountTopbar(host: HTMLElement, store: Store<AppState>, actions: 
     iconNode(icons.settings),
   );
   settings.addEventListener("click", () => actions.openSettings());
-  host.append(fileGroup, el("div", { class: "tool-divider", role: "presentation" }), insertGroup, settings);
+  const plans = el(
+    "button",
+    { type: "button", class: "tool plans-button", title: "Plans: break a task into steps", "aria-haspopup": "menu" },
+    iconNode(icons.plans),
+    el("span", {}, "Plans"),
+  );
+  plans.addEventListener("click", () => void actions.showPlans(plans));
+  host.append(fileGroup, el("div", { class: "tool-divider", role: "presentation" }), insertGroup, plans, settings);
 
   store.subscribe((state) => {
     const hasWorkspace = state.workspace !== null;
@@ -37,6 +44,9 @@ export function mountTopbar(host: HTMLElement, store: Store<AppState>, actions: 
     newFolder.disabled = !hasWorkspace;
     save.disabled = !state.docs.some(isDirty);
     exportPdf.disabled = state.workspace?.main == null;
+    plans.hidden = !state.ui.planner_enabled;
+    plans.disabled = !hasWorkspace;
+    plans.classList.toggle("active", state.planner !== null);
   });
   return insertGroup;
 }

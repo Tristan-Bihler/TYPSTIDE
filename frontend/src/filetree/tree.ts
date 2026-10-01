@@ -6,6 +6,7 @@ import { isDirty, type AppState, type Store } from "../state/store";
 import { showContextMenu, type MenuItem } from "../ui/contextMenu";
 import { dirname, el, storage } from "../ui/dom";
 import { iconNode, icons } from "../ui/icons";
+import { planName } from "../planner/model";
 
 const EXPANDED_KEY = "filetree.expanded";
 
@@ -31,6 +32,9 @@ export function mountFileTree(host: HTMLElement, store: Store<AppState>, actions
   const body = el("div", { class: "panel-body tree", role: "tree", "aria-label": "Files" });
   host.append(title, body);
 
+  /** The plan a file holds, if the planner is on and it is a plan file. */
+  const plannerPlan = (path: string): string | null => (store.get().ui.planner_enabled ? planName(path) : null);
+
   const saveExpanded = (): void => storage.set(EXPANDED_KEY, JSON.stringify([...expanded]));
 
   const folderMenu = (path: string): (MenuItem | "separator")[] => {
@@ -50,7 +54,13 @@ export function mountFileTree(host: HTMLElement, store: Store<AppState>, actions
 
   const fileMenu = (path: string): (MenuItem | "separator")[] => {
     const items: (MenuItem | "separator")[] = [];
-    if (isTextFile(path)) items.push({ label: "Open", action: () => void actions.openDoc(path) });
+    const plan = plannerPlan(path);
+    if (plan !== null) {
+      items.push({ label: "Open in planner", action: () => void actions.openPlan(plan) });
+      items.push({ label: "Open as text", action: () => void actions.openDoc(path) });
+    } else if (isTextFile(path)) {
+      items.push({ label: "Open", action: () => void actions.openDoc(path) });
+    }
     if (path.toLowerCase().endsWith(".typ") && store.get().workspace?.main !== path) {
       items.push({ label: "Set as main file", action: () => void actions.setMain(path) });
     }
@@ -78,7 +88,8 @@ export function mountFileTree(host: HTMLElement, store: Store<AppState>, actions
     const doc = state.docs.find((d) => d.path === node.path);
     const classes = ["tree-row", isFolder ? "folder" : "file"];
     if (!isFolder && !isTextFile(node.path)) classes.push("inert");
-    if (state.active === node.path) classes.push("active");
+    const planOpen = state.planner !== null && node.path === `plans/${state.planner}.plan.json`;
+    if (planOpen || (state.planner === null && state.active === node.path)) classes.push("active");
 
     const row = el("button", {
       type: "button",
@@ -107,7 +118,9 @@ export function mountFileTree(host: HTMLElement, store: Store<AppState>, actions
         render(store.get());
       } else {
         selectedFolder = dirname(node.path);
-        if (isTextFile(node.path)) void actions.openDoc(node.path);
+        const plan = plannerPlan(node.path);
+        if (plan !== null) void actions.openPlan(plan);
+        else if (isTextFile(node.path)) void actions.openDoc(node.path);
       }
     });
     row.addEventListener("contextmenu", (event) => openMenu(event, node, row));
@@ -157,7 +170,9 @@ export function mountFileTree(host: HTMLElement, store: Store<AppState>, actions
       state.tree !== previous.tree ||
       state.workspace !== previous.workspace ||
       state.active !== previous.active ||
-      state.docs !== previous.docs
+      state.docs !== previous.docs ||
+      state.planner !== previous.planner ||
+      state.ui.planner_enabled !== previous.ui.planner_enabled
     ) {
       // Reveal the active file.
       if (state.active && state.active !== previous.active) {

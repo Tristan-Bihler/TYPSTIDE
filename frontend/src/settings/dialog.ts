@@ -109,6 +109,10 @@ export function openSettings(ctx: SettingsContext): void {
   const follow = checkbox(ui.preview_follows_cursor);
   follow.addEventListener("change", () => save({ preview_follows_cursor: follow.checked }));
 
+  // Extensions: optional parts, off until turned on.
+  const planner = checkbox(ui.planner_enabled);
+  planner.addEventListener("change", () => save({ planner_enabled: planner.checked }));
+
   // Optional language tools (install from here too).
   const spelling = toolControl(store, (s) => s.checker, "Install (about 320 MB)", () => void ctx.actions.installGrammar());
   const completion = toolControl(store, (s) => s.completer, "Install (about 70 MB)", () => void ctx.actions.installCompletion());
@@ -134,6 +138,14 @@ export function openSettings(ctx: SettingsContext): void {
         row("Tinymist", completion.control, "Suggests functions after #, and labels and sources after @. Ctrl+Space asks anywhere."),
       ),
       ...(ctx.sections ?? []).map((build) => build()),
+      section(
+        "Extensions",
+        row(
+          "Planner",
+          planner,
+          "Break a task into steps on a canvas, see what can be done next, and show the plan in your document. Plans are saved in the folder's plans folder.",
+        ),
+      ),
     ),
     el("div", { class: "dialog-buttons" }, done),
   );

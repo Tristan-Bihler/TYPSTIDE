@@ -29,6 +29,8 @@ export interface AppState {
   cursor: { line: number; column: number };
   language: Language;
   ai: AIOverview | null;
+  /** Name of the plan shown in the planner (replaces the editor while open). */
+  planner: string | null;
 }
 
 export const initialState: AppState = {
@@ -41,7 +43,7 @@ export const initialState: AppState = {
   checker: null,
   completer: null,
   localPending: 0,
-  ui: { theme: "system", autosave: true, autosave_delay_ms: 2000, preview_follows_cursor: true },
+  ui: { theme: "system", autosave: true, autosave_delay_ms: 2000, preview_follows_cursor: true, planner_enabled: false },
   wordCount: null,
   saveNotice: null,
   compile: { state: "no_workspace", main: null, durationMs: null },
@@ -49,6 +51,7 @@ export const initialState: AppState = {
   cursor: { line: 1, column: 1 },
   language: "de-DE",
   ai: null,
+  planner: null,
 };
 
 type Listener<T> = (state: T, previous: T) => void;
