@@ -63,6 +63,24 @@ values (measured in `tests/test_formatting.py`): 1.0 → `0.5em`, 1.15 → `0.65
 default), 1.5 → `1.05em`, 2.0 → `1.65em`. Font names are strings: escape `"` and `\`
 (`escape_string`); an unknown font only falls back to the next one, it is not an error.
 
+### Drawings without packages (Planner export, `domain/plan_export.py`)
+
+Packages (CeTZ, Fletcher) need a download from `packages.typst.org`, which this project
+avoids. Boxes and arrows work with built-in elements only:
+
+| Want | Typst 0.15.0 |
+|---|---|
+| Fixed-size canvas | `#block(width: 11.8cm, height: 3.2cm, breakable: false)[ … ]` — `place` inside does not take space, so give the block its size |
+| A box at a position | `#place(dx: 4.2cm, dy: 0cm, box(width: 3.4cm, height: 1.3cm, inset: 3pt, radius: 3pt, fill: white, stroke: 0.6pt, align(center + horizon, text(size: 9pt)[Titel])))` |
+| A line | `#place(curve(stroke: 0.6pt, curve.move((0cm, 0cm)), curve.line((2cm, 1cm))))` — the old drawing function `path` is gone in 0.15 (`path` is now a file-path type), use `curve` |
+| An arrowhead | `#place(polygon(fill: black, (2cm, 1cm), (1.8cm, 1.05cm), (1.85cm, 0.85cm)))` — compute the three points yourself |
+| Grey fill / text | `luma(228)` / `luma(80)` |
+| Show it as a figure | `#figure(include "/plans/name.typ", caption: [Titel]) <fig:plan-name>` (the drawing file is content only) |
+
+Coordinates inside `place` without `dx`/`dy` are relative to the block's top-left corner.
+Titles inside the boxes are user text: escape them like captions.
+`examples/plans/ablauf.typ` is such a drawing, included by `examples/main.typ`.
+
 ## Escaping user text
 
 Captions, table cells and other user-typed text go inside content blocks `[...]`. Escape

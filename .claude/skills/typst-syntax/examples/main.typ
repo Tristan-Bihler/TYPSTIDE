@@ -38,4 +38,8 @@ $ sum_(i=1)^n i $
 
 #pagebreak()
 
+Der Ablauf in @fig:plan-ablauf ist ohne Pakete gezeichnet.
+
+#figure(include "/plans/ablauf.typ", caption: [Ablauf der Messung]) <fig:plan-ablauf>
+
 #bibliography("refs.bib")

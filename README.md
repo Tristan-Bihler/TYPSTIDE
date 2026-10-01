@@ -39,6 +39,15 @@ python scripts/install_ltex.py       # spelling and grammar (LTeX+, about 320 MB
 python scripts/install_tinymist.py   # autocomplete (Tinymist, about 70 MB)
 ```
 
+### Planner (optional)
+
+Turn it on in Settings → *Extensions*. A *Plans* button appears next to the gear: create a
+plan, add steps, drag them around, and Shift-click one step and then another to make the
+second wait for the first. *Next* lists what can start now. Each step has notes in Typst,
+rendered below them. Plans are saved as `plans/<name>.plan.json` in the open folder.
+*Export* writes `plans/<name>.typ` (a figure you `#include`; it is updated with every
+change to the plan) or `plans/<name>.puml` (PlantUML).
+
 ## Windows app
 
 Every push builds a Windows installer on GitHub Actions (workflow *Windows app*). Open the
