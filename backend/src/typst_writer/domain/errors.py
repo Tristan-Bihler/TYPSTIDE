@@ -61,3 +61,19 @@ class TextTooLongError(WorkspaceError):
 
 class CheckerUnavailableError(WorkspaceError):
     """Spelling and grammar checks cannot run (LTeX+ not installed, failed to start)."""
+
+
+class PlannerDisabledError(WorkspaceError):
+    def __init__(self) -> None:
+        super().__init__("The planner is turned off. Turn it on in Settings, under Extensions.")
+
+
+class PlanConflictError(WorkspaceError):
+    """The plan file changed since it was read (another window, or edited as text)."""
+
+    def __init__(self) -> None:
+        super().__init__("The plan changed elsewhere. It was reloaded; please redo your change.")
+
+
+class PlanInvalidError(WorkspaceError):
+    pass

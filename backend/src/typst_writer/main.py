@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from typst_writer.adapters.claude_cli import ClaudeCliProvider
 from typst_writer.adapters.ollama import OllamaProvider
 from typst_writer.adapters.typst_py import TypstPyCompiler, typst_version
-from typst_writer.api import rest, websocket
+from typst_writer.api import planner, rest, websocket
 from typst_writer.api.deps import Services
 from typst_writer.api.schemas import ErrorResponse
 from typst_writer.config import SNIPPETS_PATH, AppConfig, load_config
@@ -28,6 +28,7 @@ from typst_writer.services.completion import CompletionService
 from typst_writer.services.formatting import FormattingService
 from typst_writer.services.grammar import GrammarService
 from typst_writer.services.local_check import LocalAI
+from typst_writer.services.planner import PlannerService
 from typst_writer.services.review import ReviewService
 from typst_writer.services.settings import SettingsService
 from typst_writer.services.snippets import SnippetService
@@ -55,6 +56,9 @@ _STATUS: dict[type[errors.WorkspaceError], tuple[int, str]] = {
     errors.TextTooLongError: (413, "too_long"),
     errors.CheckerUnavailableError: (409, "checker_unavailable"),
     CannotFormatError: (422, "cannot_format"),
+    errors.PlannerDisabledError: (409, "planner_disabled"),
+    errors.PlanConflictError: (409, "plan_conflict"),
+    errors.PlanInvalidError: (422, "invalid_plan"),
 }
 
 
@@ -105,10 +109,11 @@ def create_app(
     completion = CompletionService(config, workspace)
     completion.subscribe(hub.completer_status)
     ollama = OllamaProvider(config.ollama)
+    compile_service = CompileService(TypstPyCompiler(), cache_dir())
     services = Services(
         config=config,
         workspace=workspace,
-        compile=CompileService(TypstPyCompiler(), cache_dir()),
+        compile=compile_service,
         snippets=SnippetService(SNIPPETS_PATH),
         formatting=FormattingService(SNIPPETS_PATH),
         review=ReviewService(
@@ -121,6 +126,7 @@ def create_app(
         grammar=grammar,
         completion=completion,
         local_ai=LocalAI(ollama, settings, config.ollama.max_paragraph_chars),
+        planner=PlannerService(workspace, settings, compile_service),
         hub=hub,
     )
 
@@ -149,6 +155,7 @@ def create_app(
     app.add_exception_handler(errors.WorkspaceError, _workspace_error)
     app.add_exception_handler(CompileFailedError, _compile_failed)
     app.include_router(rest.router)
+    app.include_router(planner.router)
     app.include_router(websocket.router)
     if static_dir is not None:
         app.mount("/", StaticFiles(directory=static_dir, html=True), name="frontend")

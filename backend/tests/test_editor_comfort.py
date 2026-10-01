@@ -73,12 +73,14 @@ def test_ui_settings_default_validate_and_persist(client: TestClient) -> None:
         "autosave": True,
         "autosave_delay_ms": 2000,
         "preview_follows_cursor": True,
+        "planner_enabled": False,
     }
     new = {
         "theme": "dark",
         "autosave": False,
         "autosave_delay_ms": 5000,
         "preview_follows_cursor": False,
+        "planner_enabled": True,
     }
     assert client.put("/api/settings/ui", json=new).json() == new
     for bad in [{**new, "theme": "neon"}, {**new, "autosave_delay_ms": 10}, {**new, "x": 1}]:

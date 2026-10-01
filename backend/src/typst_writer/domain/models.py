@@ -116,6 +116,7 @@ class UiSettings(BaseModel):
     autosave: bool = True
     autosave_delay_ms: int = Field(default=2000, ge=500, le=60_000)
     preview_follows_cursor: bool = True
+    planner_enabled: bool = False  # the optional Planner extension
 
 
 # --- Spelling and grammar (rule checks) ----------------------------------------------

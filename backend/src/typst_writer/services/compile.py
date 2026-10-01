@@ -58,6 +58,18 @@ class CompileService:
             wrapper.write_text(source, encoding="utf-8")
             return await self._compiler.query(wrapper, shadow_root, selector)
 
+    async def render_helper(
+        self, root: Path, overlays: Mapping[str, str], name: str, source: str
+    ) -> CompileResult:
+        """Compile a stand-alone helper file (e.g. a plan step's notes) written into the
+        mirror, so it sees the project's files; the workspace is never touched."""
+        async with self._lock:
+            shadow = self._shadow_for(root)
+            await asyncio.to_thread(shadow.sync, overlays)
+            helper = shadow.shadow / name
+            helper.write_text(source, encoding="utf-8")
+            return await self._compiler.to_svg_pages(helper, shadow.shadow)
+
     async def export_pdf(self, root: Path, main: str, overlays: Mapping[str, str]) -> bytes:
         async with self._lock:
             main_path, shadow_root = await self._prepare(root, main, overlays)

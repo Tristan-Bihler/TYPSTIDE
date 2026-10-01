@@ -11,6 +11,7 @@ from typst_writer.services.completion import CompletionService
 from typst_writer.services.formatting import FormattingService
 from typst_writer.services.grammar import GrammarService
 from typst_writer.services.local_check import LocalAI
+from typst_writer.services.planner import PlannerService
 from typst_writer.services.review import ReviewService
 from typst_writer.services.settings import SettingsService
 from typst_writer.services.snippets import SnippetService
@@ -32,6 +33,7 @@ class Services:
     grammar: GrammarService
     completion: CompletionService
     local_ai: LocalAI
+    planner: PlannerService
     hub: "Hub"
 
 
